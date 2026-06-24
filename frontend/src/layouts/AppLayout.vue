@@ -46,6 +46,12 @@
       </nav>
 
       <div class="border-t border-[var(--border)] p-3">
+        <div
+          v-if="!uiStore.sidebarCollapsed && userStore.profile"
+          class="mb-2 truncate px-3 text-sm text-[var(--text-secondary)]"
+        >
+          {{ userStore.profile.username }}
+        </div>
         <button
           class="mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--border)]"
           @click="uiStore.toggleDarkMode()"
@@ -92,6 +98,9 @@ function handleLogout() {
 }
 
 onMounted(() => {
+  if (userStore.isLoggedIn) {
+    userStore.fetchProfile().catch(() => {})
+  }
   notebookStore.fetchNotebooks().catch(() => {})
 })
 </script>

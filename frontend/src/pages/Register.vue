@@ -23,7 +23,7 @@
         <input
           v-model="password"
           type="password"
-          placeholder="密码"
+          placeholder="密码（至少 6 位）"
           required
           minlength="6"
           class="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
@@ -50,9 +50,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { authApi } from '@/api/auth'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const username = ref('')
 const email = ref('')
 const password = ref('')
@@ -61,13 +62,9 @@ const loading = ref(false)
 async function handleRegister() {
   loading.value = true
   try {
-    await authApi.register({
-      username: username.value,
-      email: email.value,
-      password: password.value,
-    })
-    ElMessage.success('注册成功，请登录')
-    router.push('/login')
+    await userStore.register(username.value, email.value, password.value)
+    ElMessage.success('注册成功')
+    router.push('/')
   } catch {
     // error shown by axios interceptor
   } finally {

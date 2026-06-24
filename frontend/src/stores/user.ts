@@ -1,25 +1,52 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { authApi } from '@/api/auth'
+import { authApi, type UserProfile } from '@/api/auth'
+import { clearTokens, saveTokens } from '@/api/index'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('access_token') || '')
+  const profile = ref<UserProfile | null>(null)
   const isLoggedIn = ref(!!token.value)
+
+  function setAuth(access: string, refresh: string) {
+    token.value = access
+    isLoggedIn.value = true
+    saveTokens(access, refresh)
+  }
+
+  async function fetchProfile() {
+    const { data } = await authApi.me()
+    profile.value = data
+    return data
+  }
 
   async function login(username: string, password: string) {
     const { data } = await authApi.login({ username, password })
-    token.value = data.access
-    localStorage.setItem('access_token', data.access)
-    localStorage.setItem('refresh_token', data.refresh)
-    isLoggedIn.value = true
+    setAuth(data.access, data.refresh)
+    await fetchProfile()
+  }
+
+  async function register(username: string, email: string, password: string) {
+    const { data } = await authApi.register({ username, email, password })
+    setAuth(data.access, data.refresh)
+    await fetchProfile()
   }
 
   function logout() {
     token.value = ''
+    profile.value = null
     isLoggedIn.value = false
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    clearTokens()
   }
 
-  return { token, isLoggedIn, login, logout }
+  return {
+    token,
+    profile,
+    isLoggedIn,
+    login,
+    register,
+    logout,
+    fetchProfile,
+    setAuth,
+  }
 })

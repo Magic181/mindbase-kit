@@ -16,9 +16,16 @@ export interface TokenResponse {
   refresh: string
 }
 
+export interface UserProfile {
+  id: number
+  username: string
+  email: string
+}
+
 export const authApi = {
   login: (data: LoginParams) => api.post<TokenResponse>('/auth/login/', data),
-  register: (data: RegisterParams) => api.post('/auth/register/', data),
+  register: (data: RegisterParams) => api.post<TokenResponse>('/auth/register/', data),
   refresh: (refresh: string) =>
     api.post<TokenResponse>('/auth/refresh/', { refresh }),
+  me: () => api.get<UserProfile>('/auth/me/'),
 }

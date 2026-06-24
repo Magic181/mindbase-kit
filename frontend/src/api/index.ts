@@ -1,5 +1,6 @@
-import axios, { type AxiosError } from 'axios'
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
+import { isTokenExpiringSoon } from '@/utils/jwt'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -9,20 +10,79 @@ const api = axios.create({
   },
 })
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
 interface ApiBody<T = unknown> {
   code: number
   message: string
   data: T
   errors?: Array<{ field: string; message: string }>
 }
+
+let refreshPromise: Promise<string> | null = null
+
+function saveTokens(access: string, refresh?: string) {
+  localStorage.setItem('access_token', access)
+  if (refresh) {
+    localStorage.setItem('refresh_token', refresh)
+  }
+}
+
+function clearTokens() {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+}
+
+function redirectToLogin() {
+  clearTokens()
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.href = '/login'
+  }
+}
+
+async function refreshAccessToken(): Promise<string> {
+  const refresh = localStorage.getItem('refresh_token')
+  if (!refresh) {
+    redirectToLogin()
+    throw new Error('No refresh token')
+  }
+
+  const response = await axios.post(
+    '/api/v1/auth/refresh/',
+    { refresh },
+    { headers: { 'Content-Type': 'application/json' } },
+  )
+  const body = response.data as ApiBody<{ access: string; refresh?: string }>
+  const data = body?.data ?? response.data
+  saveTokens(data.access, data.refresh)
+  return data.access
+}
+
+async function ensureFreshToken(): Promise<void> {
+  const access = localStorage.getItem('access_token')
+  if (!access || !isTokenExpiringSoon(access)) return
+
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null
+    })
+  }
+  await refreshPromise
+}
+
+api.interceptors.request.use(async (config) => {
+  const isAuthRefresh = config.url?.includes('/auth/refresh/')
+  const isAuthLogin = config.url?.includes('/auth/login/')
+  const isAuthRegister = config.url?.includes('/auth/register/')
+
+  if (!isAuthRefresh && !isAuthLogin && !isAuthRegister) {
+    await ensureFreshToken().catch(() => {})
+  }
+
+  const token = localStorage.getItem('access_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
 
 api.interceptors.response.use(
   (response) => {
@@ -35,19 +95,38 @@ api.interceptors.response.use(
     }
     return response
   },
-  (error: AxiosError<ApiBody>) => {
+  async (error: AxiosError<ApiBody>) => {
     const status = error.response?.status
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
     const message =
       error.response?.data?.message ||
       error.message ||
       'Network error'
 
-    if (status === 401) {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login'
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/login/') ||
+      originalRequest?.url?.includes('/auth/register/') ||
+      originalRequest?.url?.includes('/auth/refresh/')
+
+    if (status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
+      originalRequest._retry = true
+      try {
+        if (!refreshPromise) {
+          refreshPromise = refreshAccessToken().finally(() => {
+            refreshPromise = null
+          })
+        }
+        const access = await refreshPromise
+        originalRequest.headers.Authorization = `Bearer ${access}`
+        return api(originalRequest)
+      } catch {
+        redirectToLogin()
+        return Promise.reject(error)
       }
+    }
+
+    if (status === 401) {
+      redirectToLogin()
     } else if (status !== 401) {
       ElMessage.error(message)
     }
@@ -57,3 +136,4 @@ api.interceptors.response.use(
 )
 
 export default api
+export { saveTokens, clearTokens }
