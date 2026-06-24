@@ -9,7 +9,7 @@ AI 知识工作台 — 上传资料、AI 阅读、智能问答、引用原文。
 | 项目基础 | ✅ 已完成 | Django + Vue3 脚手架、Docker Compose、统一 API 格式 |
 | 用户认证 | ✅ 已完成 | 注册/登录/刷新/退出、JWT 黑名单、启动会话校验 |
 | Notebook 管理 | ✅ 已完成 | CRUD、收藏、搜索、分页 |
-| 文档管理 | ⏳ 待开发 | Batch 4 |
+| 文档管理 | ✅ 已完成 | 上传、解析、分块、状态追踪（TXT/MD/PDF/DOCX） |
 | AI 聊天 + RAG | ⏳ 待开发 | Batch 5 |
 
 ## 技术栈
@@ -51,6 +51,12 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+**可选 — Celery Worker（`CELERY_TASK_ALWAYS_EAGER=false` 时）：**
+
+```bash
+celery -A config worker -l info
+```
+
 后端默认运行在 http://localhost:8000
 
 ### 4. 启动前端
@@ -86,7 +92,8 @@ AI-Notebook/
 │   └── apps/
 │       ├── core/            # 健康检查、统一响应
 │       ├── users/           # 用户认证
-│       └── notebooks/       # 笔记本 CRUD
+│       ├── notebooks/       # 笔记本 CRUD
+│       └── documents/       # 文档上传与解析
 ├── docker-compose.dev.yml
 └── .env.example
 ```
@@ -104,6 +111,8 @@ AI-Notebook/
 | GET/POST | `/api/v1/notebooks/` | 列表 / 创建 |
 | GET/PATCH/DELETE | `/api/v1/notebooks/{id}/` | 详情 / 更新 / 删除 |
 | POST | `/api/v1/notebooks/{id}/favorite/` | 切换收藏 |
+| GET/POST | `/api/v1/notebooks/{id}/documents/` | 文档列表 / 上传 |
+| GET/DELETE | `/api/v1/documents/{id}/` | 文档详情 / 删除 |
 
 完整规范见 [API 规范](docs/engineering/API规范.md)。
 

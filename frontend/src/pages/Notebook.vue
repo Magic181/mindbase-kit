@@ -55,16 +55,16 @@
           返回首页
         </router-link>
       </div>
-      <div
-        v-else
-        class="rounded-2xl border border-dashed border-[var(--border)] py-16 text-center"
-      >
-        <p class="text-4xl">📄</p>
-        <p class="mt-4 text-[var(--text)]">文档管理</p>
-        <p class="mt-2 text-sm text-[var(--text-secondary)]">
-          上传文档后，AI 将自动阅读并建立知识索引
-        </p>
-        <p class="mt-4 text-xs text-[var(--text-secondary)]">（Batch 4 实现）</p>
+      <div v-else class="space-y-6">
+        <UploadZone
+          :uploading="documentStore.uploading"
+          @upload="handleUpload"
+        />
+        <DocumentList
+          :documents="documentStore.documents"
+          :loading="documentStore.loading"
+          @delete="openDeleteDocument"
+        />
       </div>
     </div>
   </div>
@@ -137,23 +137,58 @@
       </div>
     </div>
   </div>
+  <div
+    v-if="showDeleteDocument"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    @click.self="showDeleteDocument = false"
+  >
+    <div class="w-full max-w-sm rounded-2xl bg-[var(--bg)] p-6 shadow-xl">
+      <h2 class="text-lg font-semibold text-[var(--text)]">确认删除文档</h2>
+      <p class="mt-2 text-sm text-[var(--text-secondary)]">
+        确定要删除「{{ documentToDelete?.name }}」吗？此操作不可恢复。
+      </p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button
+          class="rounded-xl px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+          @click="showDeleteDocument = false"
+        >
+          取消
+        </button>
+        <button
+          :disabled="deletingDocument"
+          class="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+          @click="handleDeleteDocument"
+        >
+          {{ deletingDocument ? '删除中...' : '删除' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import type { Document } from '@/api/document'
+import DocumentList from '@/components/document/DocumentList.vue'
+import UploadZone from '@/components/document/UploadZone.vue'
+import { useDocumentStore } from '@/stores/document'
 import { useNotebookStore } from '@/stores/notebook'
 
 const route = useRoute()
 const router = useRouter()
 const notebookStore = useNotebookStore()
+const documentStore = useDocumentStore()
 
 const loading = ref(false)
 const showEdit = ref(false)
 const showDelete = ref(false)
+const showDeleteDocument = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
+const deletingDocument = ref(false)
+const documentToDelete = ref<Document | null>(null)
 const editForm = ref({ name: '', description: '' })
 
 const notebook = computed(() => notebookStore.currentNotebook)
@@ -173,10 +208,43 @@ async function loadNotebook() {
   loading.value = true
   try {
     await notebookStore.fetchNotebook(id)
+    await documentStore.fetchDocuments(id)
   } catch {
     notebookStore.currentNotebook = null
   } finally {
     loading.value = false
+  }
+}
+
+async function handleUpload(files: File[]) {
+  if (!notebook.value || files.length === 0) return
+  try {
+    await documentStore.uploadDocuments(notebook.value.id, files)
+    await notebookStore.fetchNotebook(notebook.value.id)
+    ElMessage.success(`已上传 ${files.length} 个文件`)
+  } catch {
+    // error shown by axios interceptor
+  }
+}
+
+function openDeleteDocument(document: Document) {
+  documentToDelete.value = document
+  showDeleteDocument.value = true
+}
+
+async function handleDeleteDocument() {
+  if (!documentToDelete.value || !notebook.value) return
+  deletingDocument.value = true
+  try {
+    await documentStore.deleteDocument(documentToDelete.value.id)
+    await notebookStore.fetchNotebook(notebook.value.id)
+    showDeleteDocument.value = false
+    documentToDelete.value = null
+    ElMessage.success('文档已删除')
+  } catch {
+    // error shown by axios interceptor
+  } finally {
+    deletingDocument.value = false
   }
 }
 
@@ -222,4 +290,5 @@ async function handleDelete() {
 }
 
 onMounted(loadNotebook)
+onUnmounted(() => documentStore.reset())
 </script>
