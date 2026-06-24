@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.notebooks',
     'apps.documents',
+    'apps.chat',
 ]
 
 MIDDLEWARE = [
@@ -146,3 +147,10 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+# DeepSeek (OpenAI compatible)
+DEEPSEEK_BASE_URL = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1')
+DEEPSEEK_MODEL = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
+
+RAG_TOP_K = int(os.getenv('RAG_TOP_K', '5'))
+RAG_MAX_CONTEXT_CHARS = int(os.getenv('RAG_MAX_CONTEXT_CHARS', '8000'))

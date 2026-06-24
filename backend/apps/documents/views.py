@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from django.conf import settings
+from django.db import transaction
 from rest_framework import status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -22,6 +23,36 @@ def normalize_file_type(filename: str) -> str:
     if ext == '.markdown':
         return 'md'
     return ext.lstrip('.')
+
+
+def validate_uploaded_files(files) -> None:
+    max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    for uploaded in files:
+        ext = Path(uploaded.name).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise ValidationError({
+                'files': f'不支持的文件格式: {uploaded.name}（支持 TXT/MD/PDF/DOCX）',
+            })
+        if uploaded.size > max_size:
+            raise ValidationError({
+                'files': f'文件过大: {uploaded.name}（最大 {settings.MAX_UPLOAD_SIZE_MB}MB）',
+            })
+
+
+def cleanup_saved_files(paths: list[str]) -> None:
+    for path in paths:
+        delete_file(path)
+
+
+def enqueue_parse_task(document_id: int) -> None:
+    try:
+        parse_document_task.delay(document_id)
+    except Exception as exc:
+        Document.objects.filter(pk=document_id).update(
+            status=DocumentStatus.FAILED,
+            error_message=f'解析任务入队失败: {exc}',
+            chunk_count=0,
+        )
 
 
 def get_user_notebook(user, notebook_id: int) -> Notebook:
@@ -59,36 +90,36 @@ class NotebookDocumentListCreateView(APIView):
         if not files:
             raise ValidationError({'files': '请选择要上传的文件'})
 
-        max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+        validate_uploaded_files(files)
+
+        saved_paths = []
         created = []
 
-        for uploaded in files:
-            ext = Path(uploaded.name).suffix.lower()
-            if ext not in ALLOWED_EXTENSIONS:
-                raise ValidationError({
-                    'files': f'不支持的文件格式: {uploaded.name}（支持 TXT/MD/PDF/DOCX）',
-                })
-            if uploaded.size > max_size:
-                raise ValidationError({
-                    'files': f'文件过大: {uploaded.name}（最大 {settings.MAX_UPLOAD_SIZE_MB}MB）',
-                })
-
-            file_type = normalize_file_type(uploaded.name)
-            relative_path, size = save_uploaded_file(
-                request.user.id,
-                notebook.id,
-                uploaded,
-            )
-            document = Document.objects.create(
-                notebook=notebook,
-                name=uploaded.name,
-                file_path=relative_path,
-                file_size=size,
-                file_type=file_type,
-                status=DocumentStatus.UPLOADING,
-            )
-            parse_document_task.delay(document.id)
-            created.append(document)
+        try:
+            with transaction.atomic():
+                for uploaded in files:
+                    file_type = normalize_file_type(uploaded.name)
+                    relative_path, size = save_uploaded_file(
+                        request.user.id,
+                        notebook.id,
+                        uploaded,
+                    )
+                    saved_paths.append(relative_path)
+                    document = Document.objects.create(
+                        notebook=notebook,
+                        name=uploaded.name,
+                        file_path=relative_path,
+                        file_size=size,
+                        file_type=file_type,
+                        status=DocumentStatus.UPLOADING,
+                    )
+                    transaction.on_commit(
+                        lambda document_id=document.id: enqueue_parse_task(document_id),
+                    )
+                    created.append(document)
+        except Exception:
+            cleanup_saved_files(saved_paths)
+            raise
 
         return Response(
             DocumentSerializer(created, many=True).data,
