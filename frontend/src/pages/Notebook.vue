@@ -1,6 +1,6 @@
 <template>
   <div class="flex h-full flex-col">
-    <header class="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] px-6">
+    <header class="flex min-h-14 shrink-0 flex-col gap-3 border-b border-[var(--border)] px-6 py-3 md:flex-row md:items-center md:justify-between">
       <div class="min-w-0 flex-1">
         <h2 class="truncate font-medium text-[var(--text)]">
           {{ notebook?.name || 'Notebook' }}
@@ -9,9 +9,9 @@
           {{ notebook.description }}
         </p>
       </div>
-      <div v-if="notebook" class="ml-4 flex shrink-0 items-center gap-2">
+      <div v-if="notebook" class="flex w-full flex-wrap items-center gap-2 md:ml-4 md:w-auto md:shrink-0 md:justify-end">
         <button
-          class="rounded-xl px-3 py-2 text-sm transition-colors"
+          class="rounded-lg px-3 py-2 text-sm transition-colors"
           :class="
             notebook.is_favorite
               ? 'bg-yellow-500/10 text-yellow-600'
@@ -19,23 +19,23 @@
           "
           @click="handleToggleFavorite"
         >
-          {{ notebook.is_favorite ? '★ 已收藏' : '☆ 收藏' }}
+          {{ notebook.is_favorite ? '已收藏' : '收藏' }}
         </button>
         <button
-          class="rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+          class="rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
           @click="showEdit = true"
         >
           编辑
         </button>
         <button
-          class="rounded-xl px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+          class="rounded-lg px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
           @click="showDelete = true"
         >
           删除
         </button>
         <router-link
           :to="`/chat/${notebook.id}`"
-          class="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
+          class="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
         >
           开始对话
         </router-link>
@@ -74,7 +74,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     @click.self="showEdit = false"
   >
-    <div class="w-full max-w-md rounded-2xl bg-[var(--bg)] p-6 shadow-xl">
+    <div class="w-full max-w-md rounded-lg bg-[var(--bg)] p-6 shadow-xl">
       <h2 class="text-lg font-semibold text-[var(--text)]">编辑笔记本</h2>
       <form class="mt-4 space-y-4" @submit.prevent="handleUpdate">
         <input
@@ -82,18 +82,18 @@
           type="text"
           placeholder="笔记本名称"
           required
-          class="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+          class="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
         />
         <textarea
           v-model="editForm.description"
           placeholder="描述（可选）"
           rows="3"
-          class="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+          class="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
         />
         <div class="flex justify-end gap-3">
           <button
             type="button"
-            class="rounded-xl px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+            class="rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
             @click="showEdit = false"
           >
             取消
@@ -101,7 +101,7 @@
           <button
             type="submit"
             :disabled="saving"
-            class="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
+            class="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
           >
             {{ saving ? '保存中...' : '保存' }}
           </button>
@@ -115,21 +115,21 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     @click.self="showDelete = false"
   >
-    <div class="w-full max-w-sm rounded-2xl bg-[var(--bg)] p-6 shadow-xl">
+    <div class="w-full max-w-sm rounded-lg bg-[var(--bg)] p-6 shadow-xl">
       <h2 class="text-lg font-semibold text-[var(--text)]">确认删除</h2>
       <p class="mt-2 text-sm text-[var(--text-secondary)]">
         确定要删除「{{ notebook.name }}」吗？此操作不可恢复。
       </p>
       <div class="mt-6 flex justify-end gap-3">
         <button
-          class="rounded-xl px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+          class="rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
           @click="showDelete = false"
         >
           取消
         </button>
         <button
           :disabled="deleting"
-          class="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+          class="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
           @click="handleDelete"
         >
           {{ deleting ? '删除中...' : '删除' }}
@@ -142,21 +142,21 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     @click.self="showDeleteDocument = false"
   >
-    <div class="w-full max-w-sm rounded-2xl bg-[var(--bg)] p-6 shadow-xl">
+    <div class="w-full max-w-sm rounded-lg bg-[var(--bg)] p-6 shadow-xl">
       <h2 class="text-lg font-semibold text-[var(--text)]">确认删除文档</h2>
-      <p class="mt-2 text-sm text-[var(--text-secondary)]">
+      <p class="mt-2 break-words text-sm text-[var(--text-secondary)]">
         确定要删除「{{ documentToDelete?.name }}」吗？此操作不可恢复。
       </p>
       <div class="mt-6 flex justify-end gap-3">
         <button
-          class="rounded-xl px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+          class="rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
           @click="showDeleteDocument = false"
         >
           取消
         </button>
         <button
           :disabled="deletingDocument"
-          class="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+          class="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
           @click="handleDeleteDocument"
         >
           {{ deletingDocument ? '删除中...' : '删除' }}
