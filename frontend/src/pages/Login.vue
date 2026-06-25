@@ -1,6 +1,6 @@
 <template>
   <div class="flex min-h-screen items-center justify-center bg-[var(--bg-secondary)]">
-    <div class="w-full max-w-md rounded-2xl bg-[var(--bg)] p-8 shadow-sm">
+    <div class="w-full max-w-md rounded-lg bg-[var(--bg)] p-8 shadow-sm">
       <h1 class="text-center text-xl font-semibold text-[var(--text)]">登录</h1>
       <p class="mt-2 text-center text-sm text-[var(--text-secondary)]">
         登录你的 AI 知识工作台
@@ -11,19 +11,19 @@
           type="text"
           placeholder="用户名"
           required
-          class="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+          class="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
         />
         <input
           v-model="password"
           type="password"
           placeholder="密码"
           required
-          class="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+          class="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
         />
         <button
           type="submit"
           :disabled="loading"
-          class="w-full rounded-xl bg-[var(--primary)] py-3 font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-50"
+          class="w-full rounded-lg bg-[var(--primary)] py-3 font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-50"
         >
           {{ loading ? '登录中...' : '登录' }}
         </button>
