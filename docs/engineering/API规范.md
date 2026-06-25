@@ -1,6 +1,6 @@
 # API 规范
 
-> 最后更新：2026-06-24
+> 最后更新：2026-06-25
 
 ## 基础规范
 
@@ -235,7 +235,7 @@ GET /api/v1/notebooks/?search=关键词&is_favorite=true&page=1&page_size=20&ord
 }
 ```
 
-> `document_count` 当前固定返回 0，Batch 4 接入文档后更新。
+> `document_count` 当前由后端按关联文档数量返回。
 
 ### 创建
 
@@ -286,6 +286,139 @@ POST /api/v1/notebooks/{id}/favorite/
 ```
 
 **响应 200：** 返回切换后的 Notebook 对象（`is_favorite` 已翻转）。
+
+---
+
+## Document API
+
+### 文档列表
+
+```http
+GET /api/v1/notebooks/{notebook_id}/documents/
+Authorization: Bearer <access_token>
+```
+
+**响应 200：**
+
+```json
+[
+  {
+    "id": 1,
+    "notebook_id": 1,
+    "name": "notes.md",
+    "file_type": "md",
+    "file_size": 1024,
+    "status": "completed",
+    "chunk_count": 3,
+    "error_message": "",
+    "created_at": "2026-06-25T08:00:00+08:00",
+    "updated_at": "2026-06-25T08:00:00+08:00"
+  }
+]
+```
+
+### 上传文档
+
+```http
+POST /api/v1/notebooks/{notebook_id}/documents/
+Content-Type: multipart/form-data
+
+files=<file1>&files=<file2>
+```
+
+支持：TXT、MD、PDF、DOCX。后端会先校验整批文件，再保存并触发解析任务，避免部分成功。
+
+### 文档详情 / 删除
+
+```http
+GET /api/v1/documents/{id}/
+DELETE /api/v1/documents/{id}/
+```
+
+用户只能访问自己 Notebook 下的文档。
+
+---
+
+## Chat API
+
+### 会话列表
+
+```http
+GET /api/v1/notebooks/{notebook_id}/conversations/
+```
+
+### 创建会话
+
+```http
+POST /api/v1/notebooks/{notebook_id}/conversations/
+
+{
+  "title": "可选标题"
+}
+```
+
+### 消息列表
+
+```http
+GET /api/v1/conversations/{conversation_id}/messages/
+```
+
+### 发送消息
+
+```http
+POST /api/v1/conversations/{conversation_id}/messages/send/
+
+{
+  "content": "请总结这份资料",
+  "web_search": false
+}
+```
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| content | string | 必填 | 用户问题 |
+| web_search | boolean | false | true 时启用 Tavily 联网搜索 |
+
+**响应 200：**
+
+```json
+{
+  "user_message": {
+    "id": 1,
+    "conversation_id": 1,
+    "role": "user",
+    "content": "请总结这份资料",
+    "citations": [],
+    "created_at": "2026-06-25T08:00:00+08:00"
+  },
+  "assistant_message": {
+    "id": 2,
+    "conversation_id": 1,
+    "role": "assistant",
+    "content": "回答内容",
+    "citations": [
+      {
+        "source_type": "document",
+        "document_id": 1,
+        "document_name": "notes.md",
+        "chunk_id": 1,
+        "chunk_text": "原文片段",
+        "position": 0
+      },
+      {
+        "source_type": "web",
+        "title": "网页标题",
+        "url": "https://example.com",
+        "content": "网页摘要",
+        "position": 1
+      }
+    ],
+    "created_at": "2026-06-25T08:00:02+08:00"
+  }
+}
+```
+
+不开启联网搜索时，只使用 Notebook 内已解析文档和模型通用能力。开启联网搜索时，后端会把 Tavily 搜索结果作为 `[W1]`、`[W2]` 等网页来源加入上下文。
 
 ---
 
