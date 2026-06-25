@@ -7,18 +7,18 @@
       </div>
       <div class="p-2">
         <button
-          class="w-full rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
+          class="w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
           :disabled="creatingConversation"
           @click="createConversation()"
         >
-          {{ creatingConversation ? '创建中...' : '+ 新会话' }}
+          {{ creatingConversation ? '创建中...' : '新会话' }}
         </button>
       </div>
       <div class="max-h-[calc(100vh-120px)] overflow-y-auto p-2">
         <button
           v-for="c in conversations"
           :key="c.id"
-          class="mb-1 w-full truncate rounded-xl px-3 py-2 text-left text-sm transition-colors"
+          class="mb-1 w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-colors"
           :class="
             c.id === activeConversationId
               ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
@@ -40,7 +40,7 @@
           </p>
         </div>
         <button
-          class="rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] md:hidden"
+          class="rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] md:hidden"
           @click="createConversation()"
         >
           新会话
@@ -97,7 +97,7 @@
       </div>
 
       <div class="shrink-0 border-t border-[var(--border)] p-4">
-        <div class="mb-3 inline-flex rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1 text-sm">
+        <div class="mb-3 inline-flex rounded-lg border border-[var(--border)] bg-[var(--bg)] p-1 text-sm">
           <button
             v-for="mode in searchModes"
             :key="mode.value"
@@ -119,12 +119,12 @@
             v-model="input"
             type="text"
             placeholder="输入你的问题..."
-            class="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+            class="flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
           />
           <button
             type="submit"
             :disabled="!input.trim() || sending || !activeConversationId"
-            class="rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
+            class="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
           >
             发送
           </button>
