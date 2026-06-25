@@ -6,27 +6,25 @@
         登录你的 AI 知识工作台
       </p>
       <form class="mt-6 space-y-4" @submit.prevent="handleLogin">
-        <input
+        <BaseInput
           v-model="username"
           type="text"
           placeholder="用户名"
           required
-          class="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
         />
-        <input
+        <BaseInput
           v-model="password"
           type="password"
           placeholder="密码"
           required
-          class="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
         />
-        <button
+        <BaseButton
           type="submit"
           :disabled="loading"
-          class="w-full rounded-lg bg-[var(--primary)] py-3 font-medium text-white transition-colors hover:bg-[var(--primary-hover)] disabled:opacity-50"
+          full-width
         >
           {{ loading ? '登录中...' : '登录' }}
-        </button>
+        </BaseButton>
       </form>
       <p class="mt-4 text-center text-sm text-[var(--text-secondary)]">
         还没有账号？
@@ -42,6 +40,8 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
