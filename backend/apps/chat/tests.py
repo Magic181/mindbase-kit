@@ -10,7 +10,7 @@ from apps.notebooks.models import Notebook
 
 from .models import Conversation, Message, MessageRole
 from .rag import DeepSeekAuthError, build_prompt, call_deepseek_chat
-from .views import (
+from .services import (
     AI_FAILURE_MESSAGE,
     WEB_ONLY_SEARCH_DEGRADED_MESSAGE,
     WEB_SEARCH_DEGRADED_MESSAGE,
@@ -47,8 +47,8 @@ class ConversationSendMessageTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    @patch('apps.chat.views.logger')
-    @patch('apps.chat.views.call_deepseek_chat', side_effect=RuntimeError('service down'))
+    @patch('apps.chat.services.logger')
+    @patch('apps.chat.services.call_deepseek_chat', side_effect=RuntimeError('service down'))
     def test_ai_failure_preserves_user_message_and_returns_assistant_failure(
         self,
         _,
@@ -74,9 +74,9 @@ class ConversationSendMessageTests(TestCase):
         self.assertEqual(response.data['assistant_message']['id'], messages[1].id)
         logger.exception.assert_called_once()
 
-    @patch('apps.chat.views.search_web')
-    @patch('apps.chat.views.retrieve_citations', return_value=[])
-    @patch('apps.chat.views.call_deepseek_chat', return_value='这是联网搜索回答。')
+    @patch('apps.chat.services.search_web')
+    @patch('apps.chat.services.retrieve_citations', return_value=[])
+    @patch('apps.chat.services.call_deepseek_chat', return_value='这是联网搜索回答。')
     def test_send_message_with_web_search_saves_web_sources(
         self,
         _,
@@ -107,9 +107,9 @@ class ConversationSendMessageTests(TestCase):
         self.assertEqual(assistant.citations[0]['source_type'], 'web')
         self.assertEqual(assistant.citations[0]['url'], 'https://example.com/article')
 
-    @patch('apps.chat.views.search_web')
-    @patch('apps.chat.views.retrieve_citations', return_value=[])
-    @patch('apps.chat.views.call_deepseek_chat', return_value='这是混合搜索回答。')
+    @patch('apps.chat.services.search_web')
+    @patch('apps.chat.services.retrieve_citations', return_value=[])
+    @patch('apps.chat.services.call_deepseek_chat', return_value='这是混合搜索回答。')
     def test_hybrid_search_uses_local_and_web_sources(
         self,
         _,
@@ -128,9 +128,9 @@ class ConversationSendMessageTests(TestCase):
         retrieve_citations.assert_called_once_with(self.notebook.id, '混合搜索问题', top_k=5)
         search_web.assert_called_once_with('混合搜索问题')
 
-    @patch('apps.chat.views.search_web')
-    @patch('apps.chat.views.retrieve_citations', return_value=[])
-    @patch('apps.chat.views.call_deepseek_chat', return_value='兼容旧参数。')
+    @patch('apps.chat.services.search_web')
+    @patch('apps.chat.services.retrieve_citations', return_value=[])
+    @patch('apps.chat.services.call_deepseek_chat', return_value='兼容旧参数。')
     def test_legacy_web_search_flag_maps_to_hybrid_mode(
         self,
         _,
@@ -149,9 +149,9 @@ class ConversationSendMessageTests(TestCase):
         retrieve_citations.assert_called_once_with(self.notebook.id, '旧参数问题', top_k=5)
         search_web.assert_called_once_with('旧参数问题')
 
-    @patch('apps.chat.views.logger')
-    @patch('apps.chat.views.search_web', side_effect=WebSearchError('search unavailable'))
-    @patch('apps.chat.views.call_deepseek_chat', return_value='这是本地资料回答。')
+    @patch('apps.chat.services.logger')
+    @patch('apps.chat.services.search_web', side_effect=WebSearchError('search unavailable'))
+    @patch('apps.chat.services.call_deepseek_chat', return_value='这是本地资料回答。')
     def test_web_search_failure_degrades_to_local_answer(
         self,
         _,
@@ -173,9 +173,9 @@ class ConversationSendMessageTests(TestCase):
         self.assertIn('这是本地资料回答。', assistant.content)
         self.assertEqual(assistant.citations, [])
 
-    @patch('apps.chat.views.logger')
-    @patch('apps.chat.views.search_web', side_effect=WebSearchError('search unavailable'))
-    @patch('apps.chat.views.call_deepseek_chat', return_value='这是通用能力回答。')
+    @patch('apps.chat.services.logger')
+    @patch('apps.chat.services.search_web', side_effect=WebSearchError('search unavailable'))
+    @patch('apps.chat.services.call_deepseek_chat', return_value='这是通用能力回答。')
     def test_web_only_search_failure_uses_web_only_degraded_message(
         self,
         _,
