@@ -11,17 +11,18 @@ from rest_framework.views import APIView
 from apps.notebooks.models import Notebook
 
 from .models import Conversation, Message, MessageRole
-from .rag import build_prompt, call_deepseek_chat, retrieve_citations
+from .rag import DeepSeekError, build_prompt, call_deepseek_chat, retrieve_citations
 from .serializers import (
     ConversationCreateSerializer,
     ConversationSerializer,
     MessageSerializer,
     SendMessageSerializer,
 )
-from .web_search import search_web
+from .web_search import WebSearchError, search_web
 
 logger = logging.getLogger(__name__)
 AI_FAILURE_MESSAGE = "回答生成失败，请稍后重试，或检查 AI 服务配置。"
+WEB_SEARCH_DEGRADED_MESSAGE = "联网搜索失败，已基于本地资料回答。"
 
 
 def get_user_notebook(user, notebook_id: int) -> Notebook:
@@ -84,12 +85,21 @@ class ConversationSendMessageView(APIView):
 
         citations = []
         web_results = []
+        web_search_degraded = False
         try:
             top_k = int(os.getenv("RAG_TOP_K", "5"))
             max_ctx = int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000"))
             citations = retrieve_citations(conv.notebook_id, content, top_k=top_k)
             if use_web_search:
-                web_results = search_web(content)
+                try:
+                    web_results = search_web(content)
+                except WebSearchError:
+                    logger.warning(
+                        "Web search failed for conversation %s",
+                        conv.id,
+                        exc_info=True,
+                    )
+                    web_search_degraded = True
             messages = build_prompt(
                 content,
                 citations,
@@ -97,8 +107,13 @@ class ConversationSendMessageView(APIView):
                 web_results=web_results,
             )
             answer = call_deepseek_chat(messages)
-        except Exception:
+            if web_search_degraded:
+                answer = f"{WEB_SEARCH_DEGRADED_MESSAGE}\n\n{answer}"
+        except DeepSeekError as exc:
             logger.exception("Failed to generate chat response for conversation %s", conv.id)
+            answer = getattr(exc, "user_message", AI_FAILURE_MESSAGE)
+        except Exception:
+            logger.exception("Unexpected chat response failure for conversation %s", conv.id)
             answer = AI_FAILURE_MESSAGE
 
         with transaction.atomic():

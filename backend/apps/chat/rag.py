@@ -1,9 +1,11 @@
 import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
 import requests
+from requests import exceptions as request_exceptions
 from django.db.models import Q
 
 from apps.documents.models import DocumentChunk, DocumentStatus
@@ -18,6 +20,22 @@ class Citation:
     chunk_id: int
     chunk_text: str
     position: int
+
+
+class DeepSeekError(RuntimeError):
+    user_message = "AI 服务暂时不可用，请稍后重试。"
+
+
+class DeepSeekConfigError(DeepSeekError):
+    user_message = "AI 服务配置不完整，请检查 DeepSeek API Key。"
+
+
+class DeepSeekAuthError(DeepSeekError):
+    user_message = "AI 服务认证失败，请检查 DeepSeek API Key。"
+
+
+class DeepSeekRequestError(DeepSeekError):
+    user_message = "AI 请求参数无效，请检查模型配置。"
 
 
 def _tokenize(query: str) -> list[str]:
@@ -123,25 +141,87 @@ def build_prompt(
 def call_deepseek_chat(messages: list[dict[str, Any]]) -> str:
     api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
-        raise RuntimeError("DEEPSEEK_API_KEY 未配置")
+        raise DeepSeekConfigError("DEEPSEEK_API_KEY 未配置")
 
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").rstrip("/")
-    model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    retries = int(os.getenv("DEEPSEEK_MAX_RETRIES", "2"))
+    backoff = float(os.getenv("DEEPSEEK_RETRY_BACKOFF_SECONDS", "0.2"))
+    timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "60"))
 
-    resp = requests.post(
+    data = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.2,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    resp = _post_with_retries(
         f"{base_url}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "messages": messages,
-            "temperature": 0.2,
-        },
-        timeout=60,
+        headers=headers,
+        json=data,
+        timeout=timeout,
+        retries=retries,
+        backoff=backoff,
     )
-    resp.raise_for_status()
     data = resp.json()
     return data["choices"][0]["message"]["content"]
+
+
+def _post_with_retries(
+    url: str,
+    headers: dict[str, str],
+    json: dict[str, Any],
+    timeout: float,
+    retries: int,
+    backoff: float,
+) -> requests.Response:
+    last_error: Exception | None = None
+    attempts = max(1, retries + 1)
+
+    for attempt in range(attempts):
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=json,
+                timeout=timeout,
+            )
+            _raise_for_deepseek_status(response)
+            return response
+        except (DeepSeekAuthError, DeepSeekRequestError):
+            raise
+        except (
+            request_exceptions.Timeout,
+            request_exceptions.ConnectionError,
+            request_exceptions.ChunkedEncodingError,
+            DeepSeekError,
+        ) as exc:
+            last_error = exc
+            if attempt >= attempts - 1:
+                break
+            if backoff > 0:
+                time.sleep(backoff * (attempt + 1))
+
+    raise DeepSeekError(str(last_error or "DeepSeek request failed"))
+
+
+def _raise_for_deepseek_status(response: requests.Response) -> None:
+    status_code = response.status_code
+    if status_code < 400:
+        return
+    if status_code in (401, 403):
+        raise DeepSeekAuthError(_safe_error_text(response))
+    if status_code in (400, 404):
+        raise DeepSeekRequestError(_safe_error_text(response))
+    if status_code == 429 or status_code >= 500:
+        raise DeepSeekError(_safe_error_text(response))
+    raise DeepSeekRequestError(_safe_error_text(response))
+
+
+def _safe_error_text(response: requests.Response) -> str:
+    return response.text[:500] if response.text else f"HTTP {response.status_code}"
 

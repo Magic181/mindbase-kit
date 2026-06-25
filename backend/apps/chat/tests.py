@@ -2,15 +2,26 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from requests import exceptions as request_exceptions
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.notebooks.models import Notebook
 
 from .models import Conversation, Message, MessageRole
-from .rag import build_prompt
-from .views import AI_FAILURE_MESSAGE
-from .web_search import WebResult
+from .rag import DeepSeekAuthError, build_prompt, call_deepseek_chat
+from .views import AI_FAILURE_MESSAGE, WEB_SEARCH_DEGRADED_MESSAGE
+from .web_search import WebResult, WebSearchError, search_web
+
+
+class FakeResponse:
+    def __init__(self, status_code=200, payload=None, text=''):
+        self.status_code = status_code
+        self._payload = payload or {}
+        self.text = text
+
+    def json(self):
+        return self._payload
 
 
 class ConversationSendMessageTests(TestCase):
@@ -89,6 +100,30 @@ class ConversationSendMessageTests(TestCase):
         self.assertEqual(assistant.citations[0]['source_type'], 'web')
         self.assertEqual(assistant.citations[0]['url'], 'https://example.com/article')
 
+    @patch('apps.chat.views.logger')
+    @patch('apps.chat.views.search_web', side_effect=WebSearchError('search unavailable'))
+    @patch('apps.chat.views.call_deepseek_chat', return_value='这是本地资料回答。')
+    def test_web_search_failure_degrades_to_local_answer(
+        self,
+        _,
+        search_web,
+        logger,
+    ):
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/',
+            {'content': '搜索最新资料', 'web_search': True},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        search_web.assert_called_once_with('搜索最新资料')
+        logger.warning.assert_called_once()
+
+        assistant = Message.objects.filter(role=MessageRole.ASSISTANT).latest('id')
+        self.assertIn(WEB_SEARCH_DEGRADED_MESSAGE, assistant.content)
+        self.assertIn('这是本地资料回答。', assistant.content)
+        self.assertEqual(assistant.citations, [])
+
 
 class BuildPromptTests(TestCase):
     def test_prompt_allows_general_questions_but_keeps_rag_guardrail(self):
@@ -116,3 +151,74 @@ class BuildPromptTests(TestCase):
         self.assertIn('网页搜索结果', messages[0]['content'])
         self.assertIn('[W1] 网页：Web title', messages[1]['content'])
         self.assertIn('https://example.com', messages[1]['content'])
+
+
+class DeepSeekRetryTests(TestCase):
+    @patch.dict('os.environ', {
+        'DEEPSEEK_API_KEY': 'test-key',
+        'DEEPSEEK_MODEL': 'deepseek-v4-flash',
+        'DEEPSEEK_MAX_RETRIES': '1',
+        'DEEPSEEK_RETRY_BACKOFF_SECONDS': '0',
+    })
+    @patch('apps.chat.rag.requests.post')
+    def test_deepseek_retries_transient_network_error(self, post):
+        post.side_effect = [
+            request_exceptions.ChunkedEncodingError('ended early'),
+            FakeResponse(
+                payload={
+                    'choices': [
+                        {'message': {'content': 'retry success'}}
+                    ]
+                },
+            ),
+        ]
+
+        result = call_deepseek_chat([{'role': 'user', 'content': 'hi'}])
+
+        self.assertEqual(result, 'retry success')
+        self.assertEqual(post.call_count, 2)
+
+    @patch.dict('os.environ', {
+        'DEEPSEEK_API_KEY': 'test-key',
+        'DEEPSEEK_MODEL': 'deepseek-v4-flash',
+        'DEEPSEEK_MAX_RETRIES': '2',
+        'DEEPSEEK_RETRY_BACKOFF_SECONDS': '0',
+    })
+    @patch('apps.chat.rag.requests.post')
+    def test_deepseek_auth_error_does_not_retry(self, post):
+        post.return_value = FakeResponse(status_code=401, text='unauthorized')
+
+        with self.assertRaises(DeepSeekAuthError):
+            call_deepseek_chat([{'role': 'user', 'content': 'hi'}])
+
+        self.assertEqual(post.call_count, 1)
+
+
+class WebSearchRetryTests(TestCase):
+    @patch.dict('os.environ', {
+        'TAVILY_API_KEY': 'test-key',
+        'TAVILY_MAX_RETRIES': '1',
+        'TAVILY_RETRY_BACKOFF_SECONDS': '0',
+    })
+    @patch('apps.chat.web_search.requests.post')
+    def test_tavily_retries_transient_network_error(self, post):
+        post.side_effect = [
+            request_exceptions.Timeout('timeout'),
+            FakeResponse(
+                payload={
+                    'results': [
+                        {
+                            'title': 'Result',
+                            'url': 'https://example.com',
+                            'content': 'Summary',
+                        }
+                    ]
+                },
+            ),
+        ]
+
+        results = search_web('query')
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].url, 'https://example.com')
+        self.assertEqual(post.call_count, 2)
