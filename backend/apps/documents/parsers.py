@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,7 @@ def _parse_markdown_blocks(file_path: Path, file_type: str) -> list[ParsedBlock]
     code_lines: list[str] = []
     code_language = ''
     table_lines: list[str] = []
+    table_index = 0
 
     def flush_paragraph() -> None:
         nonlocal current_lines
@@ -92,16 +94,20 @@ def _parse_markdown_blocks(file_path: Path, file_type: str) -> list[ParsedBlock]
         code_language = ''
 
     def flush_table() -> None:
-        nonlocal table_lines
+        nonlocal table_lines, table_index
         if table_lines:
+            table_text, row_count, col_count = _format_markdown_table(table_lines)
+            table_index += 1
             blocks.append(
                 _block(
-                    content='\n'.join(table_lines).strip(),
+                    content=f'[表格 {table_index}]\n{table_text}',
                     source_type='table',
                     block_index=len(blocks),
                     file_type=file_type,
                     table_format='markdown',
-                    row_count=len(table_lines),
+                    table_index=table_index,
+                    row_count=row_count,
+                    col_count=col_count,
                 )
             )
         table_lines = []
@@ -247,6 +253,18 @@ def _format_docx_table(table: Table) -> tuple[str, int, int]:
     return '\n'.join(rows), len(rows), col_count
 
 
+def _format_markdown_table(lines: list[str]) -> tuple[str, int, int]:
+    rows: list[str] = []
+    col_count = 0
+    for line in lines:
+        cells = _split_markdown_table_row(line)
+        if not cells or _is_markdown_separator_row(cells):
+            continue
+        col_count = max(col_count, len(cells))
+        rows.append(f'行 {len(rows) + 1}: ' + ' | '.join(cells))
+    return '\n'.join(rows), len(rows), col_count
+
+
 def _read_text_file(file_path: Path) -> str:
     for encoding in ('utf-8', 'utf-8-sig', 'gbk'):
         try:
@@ -275,13 +293,27 @@ def _is_markdown_table_line(line: str) -> bool:
     return stripped.startswith('|') and stripped.endswith('|') and stripped.count('|') >= 2
 
 
+def _split_markdown_table_row(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip('|').split('|')]
+
+
+def _is_markdown_separator_row(cells: list[str]) -> bool:
+    return all(re.fullmatch(r':?-{3,}:?', cell.strip()) for cell in cells if cell.strip())
+
+
 def _docx_heading_level(style_name: str) -> int | None:
     normalized = style_name.lower()
     if normalized.startswith('heading '):
         value = normalized.removeprefix('heading ').strip()
         return int(value) if value.isdigit() else None
+    if normalized.startswith('heading'):
+        value = normalized.removeprefix('heading').strip()
+        return int(value) if value.isdigit() else None
     if style_name.startswith('标题 '):
         value = style_name.removeprefix('标题 ').strip()
+        return int(value) if value.isdigit() else None
+    if style_name.startswith('标题'):
+        value = style_name.removeprefix('标题').strip()
         return int(value) if value.isdigit() else None
     return None
 

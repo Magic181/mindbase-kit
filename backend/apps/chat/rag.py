@@ -249,8 +249,10 @@ def build_prompt(
 def _source_label(source_type: str) -> str:
     labels = {
         'paragraph': '正文段落',
+        'heading': '标题',
         'page': '页面文本',
         'table': '表格',
+        'code': '代码块',
         'mixed': '混合文本',
         'text': '文本',
     }

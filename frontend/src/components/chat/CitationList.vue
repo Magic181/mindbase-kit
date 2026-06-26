@@ -31,6 +31,12 @@
             {{ documentSourceLabel(citation.document_source_type) }} #{{ citation.position }}
           </span>
         </div>
+        <p
+          v-if="documentSourceDetail(citation)"
+          class="mt-1 text-[var(--text-secondary)]"
+        >
+          {{ documentSourceDetail(citation) }}
+        </p>
         <p class="mt-2 line-clamp-3 break-words">{{ citation.chunk_text }}</p>
       </template>
     </div>
@@ -38,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Citation, WebCitation } from '@/api/chat'
+import type { Citation, DocumentCitation, WebCitation } from '@/api/chat'
 
 defineProps<{
   citations: Citation[]
@@ -56,11 +62,36 @@ function citationKey(citation: Citation, index: number) {
 function documentSourceLabel(sourceType?: string) {
   const labels: Record<string, string> = {
     paragraph: '正文',
+    heading: '标题',
     page: '页面',
     table: '表格',
+    code: '代码',
     mixed: '混合',
     text: '文本',
   }
   return labels[sourceType || ''] || '文本'
+}
+
+function documentSourceDetail(citation: DocumentCitation) {
+  const metadata = citation.metadata || {}
+  const parts: string[] = []
+  const page = numberValue(metadata.page)
+  const headingLevel = numberValue(metadata.heading_level)
+  const tableIndex = numberValue(metadata.table_index)
+  const language = stringValue(metadata.language)
+
+  if (page) parts.push(`第 ${page} 页`)
+  if (headingLevel) parts.push(`${headingLevel} 级标题`)
+  if (tableIndex) parts.push(`表格 ${tableIndex}`)
+  if (language) parts.push(language)
+  return parts.join(' · ')
+}
+
+function numberValue(value: unknown) {
+  return typeof value === 'number' ? value : null
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 </script>

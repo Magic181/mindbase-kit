@@ -342,6 +342,36 @@ class BuildPromptTests(TestCase):
         self.assertIn('资料状态：已检索到 Notebook 片段 1 个（正文段落 1 个）', messages[1]['content'])
         self.assertIn('chunk#3，正文段落', messages[1]['content'])
 
+    def test_prompt_labels_heading_and_code_context(self):
+        messages = build_prompt(
+            '说明实现结构',
+            [
+                Citation(
+                    document_id=1,
+                    document_name='notes.md',
+                    chunk_id=11,
+                    chunk_text='系统设计',
+                    position=0,
+                    source_type='heading',
+                    metadata={'source_type': 'heading', 'heading_level': 1},
+                ),
+                Citation(
+                    document_id=1,
+                    document_name='notes.md',
+                    chunk_id=12,
+                    chunk_text='print("ok")',
+                    position=1,
+                    source_type='code',
+                    metadata={'source_type': 'code', 'language': 'python'},
+                ),
+            ],
+        )
+
+        self.assertIn('标题 1 个', messages[1]['content'])
+        self.assertIn('代码块 1 个', messages[1]['content'])
+        self.assertIn('chunk#0，标题', messages[1]['content'])
+        self.assertIn('chunk#1，代码块', messages[1]['content'])
+
     def test_prompt_includes_recent_conversation_history(self):
         messages = build_prompt(
             '现在呢',

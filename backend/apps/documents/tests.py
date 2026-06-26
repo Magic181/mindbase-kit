@@ -12,7 +12,7 @@ from apps.notebooks.models import Notebook
 
 from .chunking import chunk_blocks
 from .models import Document, DocumentChunk, DocumentStatus
-from .parsers import parse_file, parse_file_blocks
+from .parsers import _docx_heading_level, parse_file, parse_file_blocks
 from .tasks import parse_document_task
 
 
@@ -190,8 +190,32 @@ class DocxParsingTests(TestCase):
         )
         self.assertEqual(blocks[0]['metadata']['heading_level'], 1)
         self.assertEqual(blocks[0]['metadata']['file_type'], 'md')
-        self.assertIn('| 登录 | 通过 |', blocks[2]['content'])
+        self.assertIn('[表格 1]', blocks[2]['content'])
+        self.assertIn('行 1: 模块 | 状态', blocks[2]['content'])
+        self.assertIn('行 2: 登录 | 通过', blocks[2]['content'])
+        self.assertEqual(blocks[2]['metadata']['table_index'], 1)
+        self.assertEqual(blocks[2]['metadata']['row_count'], 2)
+        self.assertEqual(blocks[2]['metadata']['col_count'], 2)
         self.assertEqual(blocks[3]['metadata']['language'], 'python')
+
+    def test_docx_parser_detects_heading_style(self):
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / 'heading.docx'
+            doc = DocxDocument()
+            paragraph = doc.add_paragraph('章节标题')
+            paragraph.style = 'Heading 1'
+            doc.save(path)
+
+            blocks = parse_file_blocks(path, 'docx')
+
+        self.assertEqual(blocks[0]['metadata']['source_type'], 'heading')
+        self.assertEqual(blocks[0]['metadata']['heading_level'], 1)
+
+    def test_docx_heading_level_supports_style_variants(self):
+        self.assertEqual(_docx_heading_level('Heading1'), 1)
+        self.assertEqual(_docx_heading_level('Heading 2'), 2)
+        self.assertEqual(_docx_heading_level('标题1'), 1)
+        self.assertEqual(_docx_heading_level('标题 2'), 2)
 
     @patch('apps.documents.parsers.PdfReader')
     def test_pdf_parser_uses_page_blocks_with_unified_metadata(self, pdf_reader):
