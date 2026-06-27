@@ -37,6 +37,18 @@
         >
           {{ documentSourceDetail(citation) }}
         </p>
+        <div
+          v-if="documentEvidenceBadges(citation).length"
+          class="mt-2 flex flex-wrap gap-1.5"
+        >
+          <span
+            v-for="badge in documentEvidenceBadges(citation)"
+            :key="badge"
+            class="rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]"
+          >
+            {{ badge }}
+          </span>
+        </div>
         <p class="mt-2 line-clamp-3 break-words">{{ citation.chunk_text }}</p>
       </template>
     </div>
@@ -82,13 +94,52 @@ function documentSourceDetail(citation: DocumentCitation) {
   const tableIndex = numberValue(metadata.table_index)
   const assetPosition = numberValue(metadata.asset_position)
   const language = stringValue(metadata.language)
+  const assetName = stringValue(metadata.asset_name)
+  const visionModel = stringValue(metadata.vision_model)
+  const source = stringValue(metadata.source)
+  const target = stringValue(metadata.target)
 
-  if (page) parts.push(`第 ${page} 页`)
-  if (headingLevel) parts.push(`${headingLevel} 级标题`)
-  if (tableIndex) parts.push(`表格 ${tableIndex}`)
+  if (page !== null) parts.push(`第 ${page} 页`)
+  if (headingLevel !== null) parts.push(`${headingLevel} 级标题`)
+  if (tableIndex !== null) parts.push(`表格 ${displayIndex(tableIndex)}`)
   if (assetPosition !== null) parts.push(`图片 ${assetPosition + 1}`)
   if (language) parts.push(language)
+  if (assetName) parts.push(assetName)
+  if (visionModel) parts.push(`视觉 ${visionModel}`)
+  if (source) parts.push(source)
+  if (target) parts.push(target)
   return parts.join(' · ')
+}
+
+function documentEvidenceBadges(citation: DocumentCitation) {
+  const metadata = citation.metadata || {}
+  const badges: string[] = []
+  const reason = stringValue(metadata.retrieval_reason)
+  const score = numberValue(metadata.retrieval_score)
+
+  if (reason) {
+    badges.push(
+      ...reason
+        .split('+')
+        .map((item) => retrievalReasonLabel(item))
+        .filter(Boolean),
+    )
+  }
+  if (score !== null) badges.push(`相关度 ${score}`)
+  return [...new Set(badges)]
+}
+
+function retrievalReasonLabel(reason: string) {
+  const labels: Record<string, string> = {
+    keyword_match: '关键词命中',
+    source_intent: '类型匹配',
+    document_context: '文档上下文',
+  }
+  return labels[reason] || ''
+}
+
+function displayIndex(value: number) {
+  return value <= 0 ? value + 1 : value
 }
 
 function numberValue(value: unknown) {
