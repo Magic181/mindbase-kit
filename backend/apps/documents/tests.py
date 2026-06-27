@@ -586,9 +586,43 @@ class ParseDocumentTaskTests(TransactionTestCase):
             vision_status=DocumentAsset.VisionStatus.SUCCESS,
             vision_text='图片描述',
         )
+        DocumentAsset.objects.create(
+            document=document,
+            asset_type=DocumentAsset.AssetType.IMAGE,
+            original_name='failed.png',
+            position=1,
+            ocr_status=DocumentAsset.OCRStatus.FAILED,
+            ocr_error='tesseract missing',
+            vision_status=DocumentAsset.VisionStatus.FAILED,
+            vision_error='401 unauthorized',
+        )
+        DocumentAsset.objects.create(
+            document=document,
+            asset_type=DocumentAsset.AssetType.IMAGE,
+            original_name='skipped.png',
+            position=2,
+            ocr_status=DocumentAsset.OCRStatus.SKIPPED,
+            ocr_error='No OCR text extracted',
+            vision_status=DocumentAsset.VisionStatus.SKIPPED,
+            vision_error='VISION_API_KEY not configured',
+        )
+        DocumentAsset.objects.create(
+            document=document,
+            asset_type=DocumentAsset.AssetType.IMAGE,
+            original_name='pending.png',
+            position=3,
+        )
 
         data = DocumentSerializer(document).data
 
-        self.assertEqual(data['asset_count'], 1)
+        self.assertEqual(data['asset_count'], 4)
         self.assertEqual(data['ocr_count'], 1)
+        self.assertEqual(data['ocr_failed_count'], 1)
+        self.assertEqual(data['ocr_skipped_count'], 1)
+        self.assertEqual(data['ocr_pending_count'], 1)
+        self.assertEqual(data['ocr_error_message'], 'tesseract missing')
         self.assertEqual(data['vision_count'], 1)
+        self.assertEqual(data['vision_failed_count'], 1)
+        self.assertEqual(data['vision_skipped_count'], 1)
+        self.assertEqual(data['vision_pending_count'], 1)
+        self.assertEqual(data['vision_error_message'], '401 unauthorized')

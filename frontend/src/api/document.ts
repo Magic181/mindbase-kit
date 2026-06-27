@@ -12,7 +12,15 @@ export interface Document {
   chunk_count: number
   asset_count: number
   ocr_count: number
+  ocr_pending_count: number
+  ocr_failed_count: number
+  ocr_skipped_count: number
+  ocr_error_message?: string
   vision_count: number
+  vision_pending_count: number
+  vision_failed_count: number
+  vision_skipped_count: number
+  vision_error_message?: string
   error_message?: string
   created_at: string
   updated_at: string
