@@ -94,6 +94,42 @@ class DocumentUploadTests(TransactionTestCase):
         self.assertTrue((Path(self.temp_dir.name) / document.file_path).exists())
         enqueue_parse_task.assert_called_once_with(document.id)
 
+    @patch('apps.documents.views.enqueue_parse_task')
+    def test_reparse_completed_document_enqueues_parse(self, enqueue_parse_task):
+        document = Document.objects.create(
+            notebook=self.notebook,
+            name='notes.md',
+            file_path='files/notes.md',
+            file_type='md',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=3,
+            error_message='old error',
+        )
+
+        response = self.client.post(f'/api/v1/documents/{document.id}/reparse/')
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        enqueue_parse_task.assert_called_once_with(document.id)
+        document.refresh_from_db()
+        self.assertEqual(document.status, DocumentStatus.PARSING)
+        self.assertEqual(document.chunk_count, 0)
+        self.assertEqual(document.error_message, '')
+
+    @patch('apps.documents.views.enqueue_parse_task')
+    def test_reparse_rejects_active_document(self, enqueue_parse_task):
+        document = Document.objects.create(
+            notebook=self.notebook,
+            name='notes.md',
+            file_path='files/notes.md',
+            file_type='md',
+            status=DocumentStatus.PARSING,
+        )
+
+        response = self.client.post(f'/api/v1/documents/{document.id}/reparse/')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        enqueue_parse_task.assert_not_called()
+
     @staticmethod
     def _file(name: str, content: bytes):
         from django.core.files.uploadedfile import SimpleUploadedFile

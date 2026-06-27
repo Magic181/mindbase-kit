@@ -42,6 +42,14 @@
         </span>
 
         <button
+          :disabled="isReparseDisabled(doc)"
+          class="rounded-lg px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+          @click="$emit('reparse', doc)"
+        >
+          {{ isReparsing(doc.id) ? '入队中...' : '重新解析' }}
+        </button>
+
+        <button
           class="rounded-lg px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
           @click="$emit('delete', doc)"
         >
@@ -55,13 +63,15 @@
 <script setup lang="ts">
 import type { Document, DocumentStatus } from '@/api/document'
 
-defineProps<{
+const props = defineProps<{
   documents: Document[]
   loading?: boolean
+  reparsingIds?: number[]
 }>()
 
 defineEmits<{
   delete: [document: Document]
+  reparse: [document: Document]
 }>()
 
 function fileBadge(type: string) {
@@ -98,5 +108,17 @@ function statusClass(status: DocumentStatus) {
     failed: 'bg-red-500/10 text-red-500',
   }
   return classes[status]
+}
+
+function isActiveStatus(status: DocumentStatus) {
+  return status === 'uploading' || status === 'parsing'
+}
+
+function isReparsing(documentId: number) {
+  return Boolean(props.reparsingIds?.includes(documentId))
+}
+
+function isReparseDisabled(document: Document) {
+  return isActiveStatus(document.status) || isReparsing(document.id)
 }
 </script>

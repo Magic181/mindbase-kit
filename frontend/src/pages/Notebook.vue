@@ -63,7 +63,9 @@
         <DocumentList
           :documents="documentStore.documents"
           :loading="documentStore.loading"
+          :reparsing-ids="reparsingDocumentIds"
           @delete="openDeleteDocument"
+          @reparse="handleReparseDocument"
         />
       </div>
     </div>
@@ -190,6 +192,7 @@ const deleting = ref(false)
 const deletingDocument = ref(false)
 const documentToDelete = ref<Document | null>(null)
 const editForm = ref({ name: '', description: '' })
+const reparsingDocumentIds = ref<number[]>([])
 
 const notebook = computed(() => notebookStore.currentNotebook)
 
@@ -245,6 +248,20 @@ async function handleDeleteDocument() {
     // error shown by axios interceptor
   } finally {
     deletingDocument.value = false
+  }
+}
+
+async function handleReparseDocument(document: Document) {
+  if (!notebook.value || reparsingDocumentIds.value.includes(document.id)) return
+  reparsingDocumentIds.value = [...reparsingDocumentIds.value, document.id]
+  try {
+    await documentStore.reparseDocument(notebook.value.id, document.id)
+    await notebookStore.fetchNotebook(notebook.value.id)
+    ElMessage.success('已重新解析，稍后会刷新处理结果')
+  } catch {
+    // error shown by axios interceptor
+  } finally {
+    reparsingDocumentIds.value = reparsingDocumentIds.value.filter((id) => id !== document.id)
   }
 }
 

@@ -28,4 +28,5 @@ export const documentApi = {
   },
   get: (id: number) => api.get<Document>(`/documents/${id}/`),
   delete: (id: number) => api.delete(`/documents/${id}/`),
+  reparse: (id: number) => api.post<Document>(`/documents/${id}/reparse/`),
 }

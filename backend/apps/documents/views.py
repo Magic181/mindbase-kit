@@ -139,3 +139,20 @@ class DocumentDetailView(APIView):
         delete_file(document.file_path)
         document.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DocumentReparseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk: int):
+        document = get_user_document(request.user, pk)
+        if document.status in {DocumentStatus.UPLOADING, DocumentStatus.PARSING}:
+            raise ValidationError({'status': '文档正在处理中，请完成后再重新解析'})
+
+        document.status = DocumentStatus.PARSING
+        document.error_message = ''
+        document.chunk_count = 0
+        document.save(update_fields=['status', 'error_message', 'chunk_count', 'updated_at'])
+        enqueue_parse_task(document.id)
+        document.refresh_from_db()
+        return Response(DocumentSerializer(document).data, status=status.HTTP_202_ACCEPTED)

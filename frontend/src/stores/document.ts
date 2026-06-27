@@ -75,6 +75,13 @@ export const useDocumentStore = defineStore('document', () => {
     documents.value = documents.value.filter((doc) => doc.id !== id)
   }
 
+  async function reparseDocument(notebookId: number, id: number) {
+    const { data } = await documentApi.reparse(id)
+    documents.value = documents.value.map((doc) => (doc.id === id ? data : doc))
+    startPolling(notebookId)
+    return data
+  }
+
   function reset() {
     stopPolling()
     documents.value = []
@@ -87,6 +94,7 @@ export const useDocumentStore = defineStore('document', () => {
     fetchDocuments,
     uploadDocuments,
     deleteDocument,
+    reparseDocument,
     reset,
   }
 })

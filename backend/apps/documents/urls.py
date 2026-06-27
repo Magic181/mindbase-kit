@@ -13,4 +13,9 @@ urlpatterns = [
         views.DocumentDetailView.as_view(),
         name='document-detail',
     ),
+    path(
+        'documents/<int:pk>/reparse/',
+        views.DocumentReparseView.as_view(),
+        name='document-reparse',
+    ),
 ]
