@@ -301,6 +301,8 @@ class BuildPromptTests(TestCase):
 
         self.assertIn('通用问题，可以直接自然回答', system)
         self.assertIn('未检索到可用资料片段', messages[1]['content'])
+        self.assertIn('回答策略：', messages[1]['content'])
+        self.assertIn('如果这是通用问题，可以直接回答', messages[1]['content'])
         self.assertIn('资料片段：无', messages[1]['content'])
 
     def test_prompt_includes_web_results_with_web_source_numbers(self):
@@ -340,6 +342,8 @@ class BuildPromptTests(TestCase):
         self.assertIn('禁止说“没有读取到上传内容”', messages[0]['content'])
         self.assertIn('不能看见图片像素本身', messages[0]['content'])
         self.assertIn('资料状态：已检索到 Notebook 片段 1 个（正文段落 1 个）', messages[1]['content'])
+        self.assertIn('本次没有图片 OCR 或图片描述', messages[1]['content'])
+        self.assertIn('继续基于已检索到的文字', messages[1]['content'])
         self.assertIn('chunk#3，正文段落', messages[1]['content'])
 
     def test_prompt_labels_heading_and_code_context(self):
@@ -389,6 +393,7 @@ class BuildPromptTests(TestCase):
         )
 
         self.assertIn('图片 OCR 1 个', messages[1]['content'])
+        self.assertIn('可以把它作为图片解析结果来回答', messages[1]['content'])
         self.assertIn('chunk#4，图片 OCR', messages[1]['content'])
 
     def test_prompt_labels_image_caption_context(self):
@@ -408,7 +413,26 @@ class BuildPromptTests(TestCase):
         )
 
         self.assertIn('图片描述 1 个', messages[1]['content'])
+        self.assertIn('可以把它作为图片解析结果来回答', messages[1]['content'])
         self.assertIn('chunk#5，图片描述', messages[1]['content'])
+
+    def test_prompt_gives_table_specific_answer_strategy(self):
+        messages = build_prompt(
+            '表格里的模块状态是什么',
+            [
+                Citation(
+                    document_id=1,
+                    document_name='report.docx',
+                    chunk_id=30,
+                    chunk_text='模块 | 状态\n资料管理 | 已完成',
+                    position=2,
+                    source_type='table',
+                    metadata={'source_type': 'table', 'table_index': 1},
+                )
+            ],
+        )
+
+        self.assertIn('优先提取字段、行列关系、数字和状态', messages[1]['content'])
 
     def test_prompt_includes_recent_conversation_history(self):
         messages = build_prompt(

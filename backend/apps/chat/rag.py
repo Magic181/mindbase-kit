@@ -489,10 +489,21 @@ def build_prompt(
 
     context = "\n\n".join(context_blocks) if context_blocks else ""
     source_summary = _source_summary(citations, web_results)
+    answer_strategy = _answer_strategy(query, citations, web_results)
     if context:
-        user = f"用户问题：{query}\n\n资料状态：{source_summary}\n\n资料片段：\n{context}"
+        user = (
+            f"用户问题：{query}\n\n"
+            f"资料状态：{source_summary}\n\n"
+            f"回答策略：{answer_strategy}\n\n"
+            f"资料片段：\n{context}"
+        )
     else:
-        user = f"用户问题：{query}\n\n资料状态：未检索到可用资料片段。\n\n资料片段：无"
+        user = (
+            f"用户问题：{query}\n\n"
+            f"资料状态：未检索到可用资料片段。\n\n"
+            f"回答策略：{answer_strategy}\n\n"
+            f"资料片段：无"
+        )
 
     messages = [{"role": "system", "content": system}]
     for item in history or []:
@@ -518,6 +529,47 @@ def _source_label(source_type: str) -> str:
         'text': '文本',
     }
     return labels.get(source_type, source_type or '文本')
+
+
+def _answer_strategy(
+    query: str,
+    citations: list[Citation],
+    web_results: list[WebResult],
+) -> str:
+    has_local_context = bool(citations)
+    has_web_context = bool(web_results)
+    source_types = {citation.source_type for citation in citations}
+    strategies = [
+        '先给结论，再用编号引用支撑；不要把资料状态复述成模板话。',
+        '证据不足时明确缺口，但继续给出基于现有证据的可用判断或下一步建议。',
+    ]
+
+    if not has_local_context and not has_web_context:
+        strategies.append(
+            '如果这是通用问题，可以直接回答；如果是在问 Notebook 内容，就说明本次没有命中相关片段，建议换更具体的问题或重新解析资料。'
+        )
+
+    if _has_image_intent(query):
+        image_sources = {'image_ocr', 'image_caption'} & source_types
+        if image_sources:
+            strategies.append('用户在问图片/图表；已检索到图片 OCR 或图片描述，可以把它作为图片解析结果来回答。')
+        elif has_local_context:
+            strategies.append(
+                '用户在问图片/图表，但本次没有图片 OCR 或图片描述；说明无法确认图片像素细节，同时继续基于已检索到的文字、表格或附近说明分析。'
+            )
+
+    if 'table' in source_types:
+        strategies.append('包含表格证据时，优先提取字段、行列关系、数字和状态，不要只做泛泛概括。')
+
+    if 'code' in source_types:
+        strategies.append('包含代码证据时，说明函数、接口、参数、返回值或执行流程，避免只翻译代码表面文字。')
+
+    return ' '.join(strategies)
+
+
+def _has_image_intent(query: str) -> bool:
+    lowered = query.lower()
+    return any(term in lowered for term in SOURCE_INTENT_TERMS['image'])
 
 
 def _source_summary(citations: list[Citation], web_results: list[WebResult]) -> str:
