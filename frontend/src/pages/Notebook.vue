@@ -307,5 +307,6 @@ async function handleDelete() {
 }
 
 onMounted(loadNotebook)
+watch(() => route.params.id, loadNotebook)
 onUnmounted(() => documentStore.reset())
 </script>

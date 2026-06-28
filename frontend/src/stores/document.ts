@@ -63,6 +63,7 @@ export const useDocumentStore = defineStore('document', () => {
     try {
       const { data } = await documentApi.upload(notebookId, files)
       documents.value = [...data, ...documents.value]
+      await fetchDocuments(notebookId, { silent: true })
       startPolling(notebookId)
       return data
     } finally {

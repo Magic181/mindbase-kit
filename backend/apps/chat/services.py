@@ -2,6 +2,8 @@ import logging
 import os
 from dataclasses import dataclass
 
+from apps.documents.models import Document, DocumentChunk, DocumentStatus
+
 from .models import Conversation
 from .models import MessageRole
 from .rag import (
@@ -35,6 +37,12 @@ class AssistantContext:
     citations: list[Citation]
     web_results: list[WebResult]
     degraded_message: str
+
+
+@dataclass(frozen=True)
+class RetrievalStats:
+    document_count: int
+    chunk_count: int
 
 
 def generate_assistant_draft(
@@ -76,12 +84,19 @@ def prepare_assistant_context(
     web_results: list[WebResult] = []
     web_search_degraded = False
 
-    top_k = int(os.getenv("RAG_TOP_K", "5"))
-    max_ctx = int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000"))
+    base_top_k = int(os.getenv("RAG_TOP_K", "5"))
     history_messages = history_messages or []
     local_query = _build_local_query(content, history_messages)
+    should_use_local = uses_local_retrieval(search_mode) and _should_use_local_retrieval(content, history_messages)
+    retrieval_stats = (
+        _retrieval_stats(conversation.notebook_id)
+        if should_use_local
+        else RetrievalStats(document_count=0, chunk_count=0)
+    )
+    top_k = _effective_top_k(content, base_top_k, retrieval_stats)
+    max_ctx = _effective_max_context_chars(content, retrieval_stats)
 
-    if uses_local_retrieval(search_mode) and _should_use_local_retrieval(content, history_messages):
+    if should_use_local:
         citations = retrieve_citations(conversation.notebook_id, local_query, top_k=top_k)
 
     if uses_web_search(search_mode):
@@ -155,6 +170,82 @@ def _build_local_query(content: str, history_messages: list) -> str:
     return "\n".join([*user_context[-3:], content])
 
 
+def _retrieval_stats(notebook_id: int) -> RetrievalStats:
+    completed_documents = Document.objects.filter(
+        notebook_id=notebook_id,
+        status=DocumentStatus.COMPLETED,
+    )
+    document_count = completed_documents.count()
+    chunk_count = DocumentChunk.objects.filter(document__in=completed_documents).count()
+    return RetrievalStats(document_count=document_count, chunk_count=chunk_count)
+
+
+def _effective_top_k(content: str, default_top_k: int, stats: RetrievalStats) -> int:
+    text = _normalize_query_text(content)
+    if _is_grading_or_review_query(text):
+        return max(default_top_k, int(os.getenv("RAG_GRADING_TOP_K", "24")))
+    if _is_broad_local_context_query(text) and stats.document_count > 1:
+        broad_cap = int(os.getenv("RAG_BROAD_TOP_K", "32"))
+        adaptive_top_k = max(
+            12,
+            stats.document_count * 6,
+            min(stats.chunk_count, 18),
+        )
+        return max(default_top_k, min(broad_cap, adaptive_top_k))
+    if '上传' in text and any(term in text for term in ('文件', '作业', '都', '哪些')):
+        return max(default_top_k, 8)
+    return default_top_k
+
+
+def _effective_max_context_chars(content: str, stats: RetrievalStats) -> int:
+    default_max_ctx = int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000"))
+    text = _normalize_query_text(content)
+    if _is_grading_or_review_query(text):
+        grading_max_ctx = int(os.getenv("RAG_GRADING_MAX_CONTEXT_CHARS", "120000"))
+        return max(default_max_ctx, grading_max_ctx)
+    if _is_broad_local_context_query(text) and stats.document_count > 1:
+        broad_max_ctx = int(os.getenv("RAG_BROAD_MAX_CONTEXT_CHARS", "80000"))
+        adaptive_max_ctx = max(
+            24000,
+            min(broad_max_ctx, stats.chunk_count * 1800),
+        )
+        return max(default_max_ctx, adaptive_max_ctx)
+    return default_max_ctx
+
+
+def _is_grading_or_review_query(text: str) -> bool:
+    return any(term in text for term in ('打分', '评分', '给分', '评估', '预估', '多少分', '扣分', '考核'))
+
+
+def _is_broad_local_context_query(text: str) -> bool:
+    broad_terms = (
+        '整体',
+        '全局',
+        '全部',
+        '所有',
+        '完整',
+        '全文',
+        '这些',
+        '几个',
+        '上传的',
+        '我上传',
+        '看看',
+        '帮我看',
+        '作业',
+        '大作业',
+        '论文',
+        '报告',
+        '总结',
+        '概括',
+        '分析',
+        '评价',
+        '建议',
+        '有没有问题',
+        '怎么样',
+    )
+    return any(term in text for term in broad_terms)
+
+
 def _should_use_local_retrieval(content: str, history_messages: list) -> bool:
     text = _normalize_query_text(content)
     if not text:
@@ -187,6 +278,8 @@ def _has_explicit_local_signal(text: str) -> bool:
         'notebook',
         '论文',
         '报告',
+        '作业',
+        '大作业',
         '正文',
         '图片',
         '表格',

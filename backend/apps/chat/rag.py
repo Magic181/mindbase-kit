@@ -81,6 +81,17 @@ BROAD_CONTEXT_TERMS = {
     '摘要',
     '梳理',
     '整理',
+    '分析',
+    '评价',
+    '建议',
+    '整体',
+    '全局',
+    '全部',
+    '所有',
+    '完整',
+    '这些',
+    '几个',
+    '看看',
     '全文',
     '文档',
     '资料',
@@ -243,6 +254,52 @@ def _is_document_availability_query(query: str) -> bool:
     return has_upload_subject and has_question_signal and has_read_signal
 
 
+def _is_document_inventory_query(query: str) -> bool:
+    lowered = query.lower()
+    return (
+        any(term in lowered for term in ('上传', '我上传', '这些', '全部', '所有'))
+        and any(term in lowered for term in ('文件', '文档', '资料', '作业', '论文', '报告', '都', '哪些', '列表'))
+    )
+
+
+def _is_grading_query(query: str) -> bool:
+    lowered = query.lower()
+    return any(term in lowered for term in ('打分', '评分', '给分', '评估', '预估', '多少分', '扣分', '考核'))
+
+
+def _is_multi_document_context_query(query: str) -> bool:
+    lowered = query.lower()
+    subject_terms = (
+        '文件',
+        '文档',
+        '资料',
+        '作业',
+        '大作业',
+        '论文',
+        '报告',
+        'notebook',
+    )
+    scope_terms = (
+        '整体',
+        '全局',
+        '全部',
+        '所有',
+        '完整',
+        '这些',
+        '几个',
+        '上传的',
+        '我上传',
+        '总结',
+        '概括',
+        '分析',
+        '评价',
+        '建议',
+        '看看',
+        '怎么样',
+    )
+    return any(term in lowered for term in subject_terms) and any(term in lowered for term in scope_terms)
+
+
 def _detect_query_intent(query: str) -> QueryIntent:
     lowered = query.lower()
     matched_intents = {
@@ -278,9 +335,18 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
     intent = _detect_query_intent(query)
     is_broad_context_query = _is_broad_context_query(query)
     is_document_availability_query = _is_document_availability_query(query)
+    is_document_inventory_query = _is_document_inventory_query(query)
+    is_grading_query = _is_grading_query(query)
+    is_multi_document_context_query = _is_multi_document_context_query(query)
+    include_overview_citations = (
+        is_document_availability_query
+        or is_document_inventory_query
+        or is_grading_query
+        or (is_multi_document_context_query and top_k >= 6)
+    )
     overview_citations = (
-        _document_overview_citations(notebook_id, max_docs=min(3, top_k))
-        if is_document_availability_query
+        _document_overview_citations(notebook_id, max_docs=min(top_k, max(3, top_k // 3)))
+        if include_overview_citations
         else []
     )
     remaining_top_k = max(0, top_k - len(overview_citations))
@@ -288,9 +354,9 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
         return overview_citations[:top_k]
 
     use_broad_ranking = (
-        is_broad_context_query
+        (is_broad_context_query or is_multi_document_context_query)
         and not intent.fallback_source_types
-        and is_document_availability_query
+        and top_k >= 6
     )
     base_qs = DocumentChunk.objects.select_related('document').filter(
         document__notebook_id=notebook_id,
@@ -314,6 +380,16 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
             base_qs.filter(metadata__source_type__in=intent.fallback_source_types)
             .order_by('-id')[:candidate_limit]
         )
+    if is_grading_query:
+        chunks.extend(
+            base_qs.exclude(metadata__source_type='document_overview')
+            .order_by('-document__created_at', 'position')[:candidate_limit * 3]
+        )
+    elif is_multi_document_context_query:
+        chunks.extend(
+            base_qs.exclude(metadata__source_type='document_overview')
+            .order_by('-document__created_at', 'position')[:candidate_limit * 2]
+        )
     if use_broad_ranking:
         chunks.extend(base_qs.order_by('-document__created_at', 'position')[:candidate_limit])
 
@@ -329,9 +405,23 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
         intent=intent,
         use_broad_ranking=use_broad_ranking,
     )
-    scored_chunks = _select_diverse_chunks(scored_chunks, top_k=remaining_top_k)
+    if not scored_chunks and is_broad_context_query:
+        chunks = list(base_qs.order_by('-document__created_at', 'position')[:remaining_top_k])
+        use_broad_ranking = True
+        scored_chunks = _score_chunks(
+            chunks=chunks,
+            tokens=tokens,
+            query=query,
+            intent=intent,
+            use_broad_ranking=use_broad_ranking,
+        )
+    if is_grading_query or is_multi_document_context_query:
+        scored_chunks = _select_balanced_document_chunks(scored_chunks, top_k=remaining_top_k)
+    else:
+        scored_chunks = _select_diverse_chunks(scored_chunks, top_k=remaining_top_k)
 
     citations: list[Citation] = [*overview_citations]
+    chunk_text_limit = 4000 if is_grading_query else 1200 if is_multi_document_context_query else 500
     for item in scored_chunks:
         c = item.chunk
         doc = c.document
@@ -345,7 +435,7 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
                 document_id=doc.id,
                 document_name=doc.name,
                 chunk_id=c.id,
-                chunk_text=c.content[:500],
+                chunk_text=c.content[:chunk_text_limit],
                 position=c.position,
                 source_type=(c.metadata or {}).get('source_type', 'text'),
                 metadata=metadata,
@@ -372,15 +462,16 @@ def _score_chunks(
         name_score = _document_name_score(query, tokens, chunk.document.name)
         body_score = _body_text_score(query, source_type)
         source_score = intent.source_boosts.get(source_type, 0)
+        grading_score = _grading_score(query, chunk.document.name, source_type, chunk.position)
         broad_score = _broad_context_score(chunk) if use_broad_ranking else 0
-        score = token_score + name_score + body_score + source_score + broad_score
+        score = token_score + name_score + body_score + source_score + grading_score + broad_score
         if score <= 0:
             continue
         scored.append(
             ScoredChunk(
                 chunk=chunk,
                 score=score,
-                reason=_retrieval_reason(token_hits, name_score, body_score, source_score, broad_score),
+                reason=_retrieval_reason(token_hits, name_score, body_score, source_score, grading_score, broad_score),
                 evidence_key=_evidence_key(chunk),
             )
         )
@@ -404,6 +495,34 @@ def _select_diverse_chunks(scored_chunks: list[ScoredChunk], top_k: int) -> list
         return selected
 
     selected_ids = {item.chunk.id for item in selected}
+    for item in scored_chunks:
+        if item.chunk.id in selected_ids:
+            continue
+        selected.append(item)
+        selected_ids.add(item.chunk.id)
+        if len(selected) >= top_k:
+            break
+    return selected
+
+
+def _select_balanced_document_chunks(scored_chunks: list[ScoredChunk], top_k: int) -> list[ScoredChunk]:
+    selected: list[ScoredChunk] = []
+    selected_ids: set[int] = set()
+    per_document_counts: dict[int, int] = {}
+    first_pass_limit = max(1, min(3, top_k // 3 or 1))
+
+    for item in scored_chunks:
+        document_id = item.chunk.document_id
+        if item.chunk.id in selected_ids:
+            continue
+        if per_document_counts.get(document_id, 0) >= first_pass_limit:
+            continue
+        selected.append(item)
+        selected_ids.add(item.chunk.id)
+        per_document_counts[document_id] = per_document_counts.get(document_id, 0) + 1
+        if len(selected) >= top_k:
+            return selected
+
     for item in scored_chunks:
         if item.chunk.id in selected_ids:
             continue
@@ -448,11 +567,37 @@ def _body_text_score(query: str, source_type: str) -> int:
     return 0
 
 
+def _grading_score(query: str, document_name: str, source_type: str, position: int) -> int:
+    if not _is_grading_query(query):
+        return 0
+
+    score = 0
+    if _is_rubric_document(document_name):
+        score += 18
+    else:
+        score += 44
+
+    if source_type in {'mixed', 'paragraph', 'table'}:
+        score += 18
+    elif source_type in {'image_ocr', 'image_caption'}:
+        score += 8
+    elif source_type == 'page':
+        score += 10
+
+    score += max(0, 8 - min(position or 0, 8))
+    return score
+
+
+def _is_rubric_document(document_name: str) -> bool:
+    return any(term in document_name for term in ('考核说明', '评分标准', '要求说明'))
+
+
 def _retrieval_reason(
     token_hits: int,
     name_score: int,
     body_score: int,
     source_score: int,
+    grading_score: int,
     broad_score: int,
 ) -> str:
     reasons = []
@@ -464,6 +609,8 @@ def _retrieval_reason(
         reasons.append('body_text')
     if source_score:
         reasons.append('source_intent')
+    if grading_score:
+        reasons.append('grading_context')
     if broad_score:
         reasons.append('document_context')
     return '+'.join(reasons) if reasons else 'unknown'
@@ -633,6 +780,8 @@ def build_prompt(
         "- 先直接回答用户的问题，再补充依据和限制；不要一上来要求用户重新提供资料。\n"
         "- 只要资料片段不为空，就表示已经读取到 Notebook 的可解析内容，禁止说“没有读取到上传内容”。\n"
         "- 如果资料片段包含“文档概况”，先用它判断文件是否解析完整；不要只凭某个封面片段断定正文不存在。\n"
+        "- 如果文档概况列出了用户的大作业、个人作业或其他已上传文件，禁止说这些文件没有上传或没有读到。\n"
+        "- 用户要求打分、评分或评估时，要同时使用评分标准和作业内容；如果证据不足，只能标注“基于当前片段暂估”，不能把缺失片段当成不存在。\n"
         "- 对资料型问题，优先基于资料片段回答，但不要在正文里输出 [1]、[W1]、【W1】 等编号标记；来源会由界面单独展示。\n"
         "- 如果片段只覆盖部分内容，要明确说“基于当前检索到的片段”，并给出可推断结论。\n"
         "- 如果用户问图片、流程图、截图或图表，而资料中没有图片/OCR/视觉描述，只能说明当前只能看到文档文字、表格或图片附近文字，不能看见图片像素本身；然后继续基于已读文字分析。\n"

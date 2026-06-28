@@ -5,10 +5,35 @@
         <span class="citation-section-mark" />
         <p class="text-xs font-semibold text-content-secondary">引用来源</p>
       </div>
-      <span class="text-[11px] text-content-secondary">{{ citations.length }} 条证据</span>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] text-content-secondary">
+          {{ citationCountLabel }}
+        </span>
+        <button
+          v-if="canToggle"
+          type="button"
+          class="citation-toggle"
+          :aria-expanded="isExpanded"
+          @click="isExpanded = !isExpanded"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="h-3.5 w-3.5 transition-transform duration-200"
+            :class="isExpanded ? 'rotate-180' : ''"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+          <span>{{ isExpanded ? '收起' : `展开 ${hiddenCitationCount} 条` }}</span>
+        </button>
+      </div>
     </div>
     <div
-      v-for="(citation, index) in citations"
+      v-for="(citation, index) in visibleCitations"
       :key="citationKey(citation, index)"
       class="citation-card group rounded-2xl p-4 text-sm transition-all duration-300"
     >
@@ -38,7 +63,10 @@
           <span class="citation-tag">联网来源</span>
         </div>
         <p class="mt-2 break-words text-xs text-content-secondary">{{ citation.url }}</p>
-        <p class="mt-2 line-clamp-3 break-words text-sm leading-6 text-content-secondary">
+        <p
+          class="mt-2 break-words text-sm leading-6 text-content-secondary"
+          :class="isExpanded ? 'line-clamp-4' : 'line-clamp-2'"
+        >
           {{ citation.content }}
         </p>
       </template>
@@ -81,7 +109,10 @@
             {{ badge.label }}
           </span>
         </div>
-        <p class="mt-3 line-clamp-3 break-words text-sm leading-6 text-content-secondary">
+        <p
+          class="mt-3 break-words text-sm leading-6 text-content-secondary"
+          :class="isExpanded ? 'line-clamp-4' : 'line-clamp-2'"
+        >
           {{ citationPreview(citation) }}
         </p>
       </template>
@@ -90,11 +121,28 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import type { Citation, DocumentCitation, WebCitation } from '@/api/chat'
 
-defineProps<{
+const props = defineProps<{
   citations: Citation[]
 }>()
+
+const collapsedLimit = 3
+const isExpanded = ref(false)
+
+const canToggle = computed(() => props.citations.length > collapsedLimit)
+const visibleCitations = computed(() =>
+  isExpanded.value ? props.citations : props.citations.slice(0, collapsedLimit),
+)
+const hiddenCitationCount = computed(() =>
+  Math.max(0, props.citations.length - visibleCitations.value.length),
+)
+const citationCountLabel = computed(() =>
+  canToggle.value && !isExpanded.value
+    ? `显示 ${visibleCitations.value.length} / ${props.citations.length}`
+    : `${props.citations.length} 条证据`,
+)
 
 function isWebCitation(citation: Citation): citation is WebCitation {
   return citation.source_type === 'web'
@@ -245,6 +293,41 @@ function stringValue(value: unknown) {
     0 10px 24px -22px rgba(16, 185, 129, 0.24);
 }
 
+.citation-toggle {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(213, 226, 219, 0.95);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.25rem 0.55rem;
+  color: #50615a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.citation-toggle:hover {
+  border-color: rgba(16, 185, 129, 0.24);
+  background: #f2faf6;
+  color: #047857;
+}
+
+.citation-toggle:active {
+  transform: translateY(1px);
+}
+
+.citation-toggle:focus-visible {
+  outline: 2px solid rgba(16, 185, 129, 0.28);
+  outline-offset: 2px;
+}
+
 .citation-icon {
   display: inline-flex;
   height: 2rem;
@@ -302,8 +385,15 @@ function stringValue(value: unknown) {
 }
 
 :global(.dark) .citation-meta,
-:global(.dark) .citation-tag-neutral {
+:global(.dark) .citation-tag-neutral,
+:global(.dark) .citation-toggle {
   background: rgba(18, 22, 20, 0.72);
   border-color: rgba(42, 53, 48, 0.9);
+}
+
+:global(.dark) .citation-toggle:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #7dd3a8;
 }
 </style>

@@ -210,21 +210,16 @@
       <div class="shrink-0 px-4 pb-5 pt-2">
         <div class="chat-composer mx-auto w-full max-w-3xl">
           <div class="px-3 pt-3">
-            <div class="gemini-segmented composer-segmented">
+            <div class="composer-source-controls" aria-label="回答资料来源">
               <button
-                v-for="mode in searchModes"
-                :key="mode.value"
                 type="button"
-                class="gemini-segmented-btn"
-                :class="
-                  searchMode === mode.value
-                    ? 'gemini-segmented-btn-active'
-                    : ''
-                "
+                class="composer-source-pill"
+                :class="{ 'composer-source-pill-active': webSearchEnabled }"
+                :aria-pressed="webSearchEnabled"
                 :disabled="sending"
-                @click="searchMode = mode.value"
+                @click="webSearchEnabled = !webSearchEnabled"
               >
-                {{ mode.label }}
+                联网搜索
               </button>
             </div>
           </div>
@@ -299,7 +294,7 @@ const conversations = ref<Conversation[]>([])
 const activeConversationId = ref<number | null>(null)
 const messages = ref<Message[]>([])
 const input = ref('')
-const searchMode = ref<SearchMode>('local')
+const webSearchEnabled = ref(false)
 const messagesViewport = ref<HTMLElement | null>(null)
 const conversationToDelete = ref<Conversation | null>(null)
 const editingConversationId = ref<number | null>(null)
@@ -315,11 +310,7 @@ const activeJumpMessageId = ref<number | null>(null)
 const messageElements = new Map<number, HTMLElement>()
 let jumpScrollFrame = 0
 
-const searchModes: Array<{ label: string; value: SearchMode }> = [
-  { label: '本地资料', value: 'local' },
-  { label: '联网搜索', value: 'web' },
-  { label: '混合', value: 'hybrid' },
-]
+const searchMode = computed<SearchMode>(() => (webSearchEnabled.value ? 'hybrid' : 'local'))
 
 const headerHint = computed(() => {
   if (!activeConversationId.value) return '正在初始化会话...'
@@ -349,8 +340,7 @@ const messageJumpItems = computed(() => {
 })
 
 const emptyStateHint = computed(() => {
-  if (searchMode.value === 'web') return '当前会优先使用联网搜索结果回答，适合查询最新资料。'
-  if (searchMode.value === 'hybrid') return '当前会同时结合 Notebook 文档和联网搜索结果回答。'
+  if (webSearchEnabled.value) return '当前会同时结合 Notebook 文档和联网搜索结果回答。'
   return '当前会基于该 Notebook 的已解析文档进行检索并回答。'
 })
 
@@ -927,9 +917,59 @@ onMounted(async () => {
     0 8px 26px -24px rgba(0, 0, 0, 0.32);
 }
 
-.composer-segmented {
-  border-color: transparent;
+.composer-source-controls {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
   background: rgba(239, 244, 241, 0.72);
+  padding: 0.25rem;
+}
+
+.composer-source-pill {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.35rem 1rem;
+  color: #66756f;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.composer-source-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.66);
+  color: #2f3f38;
+}
+
+.composer-source-pill:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.composer-source-pill:focus-visible {
+  outline: 2px solid rgba(16, 185, 129, 0.28);
+  outline-offset: 2px;
+}
+
+.composer-source-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.composer-source-pill-active {
+  background: #d8f3e8;
+  color: #047857;
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.08);
+}
+
+.composer-source-pill-active {
+  background: #e8f7f0;
 }
 
 .conversation-jump-nav {
@@ -1042,8 +1082,23 @@ onMounted(async () => {
   background: rgba(30, 36, 33, 0.96);
 }
 
-:global(.dark) .composer-segmented {
+:global(.dark) .composer-source-controls {
   background: rgba(18, 22, 20, 0.72);
+}
+
+:global(.dark) .composer-source-pill {
+  color: #8ea099;
+}
+
+:global(.dark) .composer-source-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: #d7e4df;
+}
+
+:global(.dark) .composer-source-pill-active {
+  background: rgba(16, 185, 129, 0.16);
+  color: #7dd3a8;
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.16);
 }
 
 :global(.dark) .conversation-jump-nav:hover,

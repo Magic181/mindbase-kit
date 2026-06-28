@@ -308,6 +308,89 @@ class ConversationSendMessageTests(TestCase):
             top_k=5,
         )
 
+    @patch.dict('os.environ', {
+        'RAG_TOP_K': '5',
+        'RAG_MAX_CONTEXT_CHARS': '8000',
+        'RAG_GRADING_TOP_K': '24',
+        'RAG_GRADING_MAX_CONTEXT_CHARS': '120000',
+    })
+    @patch('apps.chat.services.retrieve_citations', return_value=[])
+    @patch('apps.chat.services.call_deepseek_chat', return_value='评分回答。')
+    def test_grading_question_uses_larger_retrieval_budget(
+        self,
+        call_deepseek_chat,
+        retrieve_citations,
+    ):
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/',
+            {'content': '参考期末考核说明，帮我打分，我的大作业和个人的作业都上传了'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        retrieve_citations.assert_called_once_with(
+            self.notebook.id,
+            '参考期末考核说明，帮我打分，我的大作业和个人的作业都上传了',
+            top_k=24,
+        )
+        messages = call_deepseek_chat.call_args.args[0]
+        self.assertIn('资料片段：无', messages[-1]['content'])
+
+    @patch.dict('os.environ', {
+        'RAG_TOP_K': '5',
+        'RAG_MAX_CONTEXT_CHARS': '8000',
+        'RAG_BROAD_TOP_K': '32',
+        'RAG_BROAD_MAX_CONTEXT_CHARS': '80000',
+    })
+    @patch('apps.chat.services.retrieve_citations', return_value=[])
+    @patch('apps.chat.services.call_deepseek_chat', return_value='整体分析回答。')
+    def test_broad_uploaded_assignment_question_uses_adaptive_budget(
+        self,
+        _,
+        retrieve_citations,
+    ):
+        first_document = Document.objects.create(
+            notebook=self.notebook,
+            name='小组大作业.docx',
+            file_path='files/group.docx',
+            file_type='docx',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        second_document = Document.objects.create(
+            notebook=self.notebook,
+            name='个人作业.docx',
+            file_path='files/personal.docx',
+            file_type='docx',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        DocumentChunk.objects.create(
+            document=first_document,
+            content='小组作业正文。',
+            position=0,
+            metadata={'source_type': 'paragraph'},
+        )
+        DocumentChunk.objects.create(
+            document=second_document,
+            content='个人作业正文。',
+            position=0,
+            metadata={'source_type': 'paragraph'},
+        )
+
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/',
+            {'content': '帮我看看我上传的作业整体怎么样'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        retrieve_citations.assert_called_once_with(
+            self.notebook.id,
+            '帮我看看我上传的作业整体怎么样',
+            top_k=12,
+        )
+
     @patch('apps.chat.views.stream_deepseek_chat', return_value=iter(['你好', '，这是流式回答。']))
     @patch('apps.chat.views.prepare_assistant_context')
     def test_stream_message_emits_events_and_saves_messages(
@@ -737,6 +820,89 @@ class RetrieveCitationTests(TestCase):
 
         self.assertEqual(len(citations), 1)
         self.assertEqual(citations[0].document_name, '实验课小组大论文.docx')
+
+    def test_grading_query_uses_rubric_and_uploaded_assignments(self):
+        personal = Document.objects.create(
+            notebook=self.notebook,
+            name='个人实验思考与扩展说明_学生.docx',
+            file_path='files/personal.docx',
+            file_type='docx',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        DocumentChunk.objects.create(
+            document=personal,
+            content='个人具体工作包括调试监听节点，关键代码理解包括安全停止逻辑，问题分析记录了话题名称不一致。',
+            position=0,
+            metadata={'source_type': 'paragraph'},
+        )
+        requirements = Document.objects.create(
+            notebook=self.notebook,
+            name='嵌入式系统实验期末考核说明.pdf',
+            file_path='files/requirements.pdf',
+            file_type='pdf',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        DocumentChunk.objects.create(
+            document=requirements,
+            content='小组大论文评分标准包括实验任务说明、系统总体设计、实验结果与证据、调试过程。',
+            position=0,
+            metadata={'source_type': 'page', 'page': 10},
+        )
+
+        citations = retrieve_citations(
+            self.notebook.id,
+            '参考期末考核说明，帮我打分，我的大作业和个人的作业都上传了',
+            top_k=9,
+        )
+
+        document_names = {citation.document_name for citation in citations}
+        self.assertIn('实验课小组大论文.docx', document_names)
+        self.assertIn('个人实验思考与扩展说明_学生.docx', document_names)
+        self.assertIn('嵌入式系统实验期末考核说明.pdf', document_names)
+
+    def test_broad_multi_document_query_includes_each_uploaded_file(self):
+        personal = Document.objects.create(
+            notebook=self.notebook,
+            name='个人实验思考与扩展说明_学生.docx',
+            file_path='files/personal.docx',
+            file_type='docx',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        DocumentChunk.objects.create(
+            document=personal,
+            content='个人作业正文包含调试过程、问题分析和扩展思考。',
+            position=0,
+            metadata={'source_type': 'paragraph'},
+        )
+        requirements = Document.objects.create(
+            notebook=self.notebook,
+            name='嵌入式系统实验期末考核说明.pdf',
+            file_path='files/requirements.pdf',
+            file_type='pdf',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        DocumentChunk.objects.create(
+            document=requirements,
+            content='期末考核说明包含评分标准和提交要求。',
+            position=0,
+            metadata={'source_type': 'page', 'page': 1},
+        )
+
+        citations = retrieve_citations(
+            self.notebook.id,
+            '帮我看看我上传的作业整体怎么样',
+            top_k=12,
+        )
+
+        document_names = {citation.document_name for citation in citations}
+        self.assertIn('实验课小组大论文.docx', document_names)
+        self.assertIn('个人实验思考与扩展说明_学生.docx', document_names)
+        self.assertIn('嵌入式系统实验期末考核说明.pdf', document_names)
+        self.assertIn('document_overview', {citation.source_type for citation in citations})
 
     def test_specific_miss_does_not_return_unrelated_context(self):
         citations = retrieve_citations(self.notebook.id, '量子计算复杂度', top_k=1)
