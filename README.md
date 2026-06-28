@@ -9,8 +9,9 @@ AI 知识工作台 — 上传资料、AI 阅读、智能问答、引用原文。
 | 项目基础 | ✅ 已完成 | Django + Vue3 脚手架、Docker Compose、统一 API 格式 |
 | 用户认证 | ✅ 已完成 | 注册/登录/刷新/退出、JWT 黑名单、启动会话校验 |
 | Notebook 管理 | ✅ 已完成 | CRUD、收藏、搜索、分页 |
-| 文档管理 | ✅ 已完成 | 上传、解析、分块、状态追踪（TXT/MD/PDF/DOCX） |
-| AI 聊天 + RAG | ✅ 已完成 | 会话、消息、关键词 RAG、引用来源、DeepSeek 调用 |
+| 文档管理 | ✅ 已完成 | 上传、解析、分块、重新解析、状态追踪（TXT/MD/PDF/DOCX） |
+| 多模态解析 | ✅ 已完成 | 图片抽取、OCR、视觉描述、处理诊断 |
+| AI 聊天 + RAG | ✅ 已完成 | 会话、消息、结构感知检索、重排、引用来源、DeepSeek 调用 |
 | 联网搜索 | ✅ 已完成 | 本地资料 / 联网搜索 / 混合模式、网页来源引用 |
 | 前端体验 | ✅ 已优化 | Chat 引用组件、文档上传列表、Notebook 页面、认证页和侧栏 UI 规范化 |
 
@@ -22,7 +23,7 @@ AI 知识工作台 — 上传资料、AI 阅读、智能问答、引用原文。
 | 后端 | Django 5 + DRF + SimpleJWT |
 | 数据库 | MySQL（推荐）/ SQLite（本地快速启动） |
 | 队列 | Celery + Redis（开发可用 eager 模式） |
-| AI | DeepSeek OpenAI-compatible API + Tavily Search |
+| AI | DeepSeek OpenAI-compatible API + Tavily Search + Tesseract OCR + OpenAI-compatible/Zhipu Vision |
 
 ## 快速开始
 
@@ -38,7 +39,7 @@ AI 知识工作台 — 上传资料、AI 阅读、智能问答、引用原文。
 cp .env.example .env
 ```
 
-编辑 `.env`，配置数据库、JWT、DeepSeek 和 Tavily（详见 [环境配置](docs/devops/环境配置.md)）。
+编辑 `.env`，配置数据库、JWT、DeepSeek、Tavily、OCR 和视觉模型（详见 [环境配置](docs/devops/环境配置.md)）。
 
 本地快速体验建议：
 
@@ -94,7 +95,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 ```
 AI-Notebook/
-├── docs/                    # 产品 & 技术文档
+├── docs/                    # 产品、工程、AI、设计、运维文档
 ├── frontend/                # Vue3 前端
 │   └── src/
 │       ├── api/             # API 封装
@@ -107,8 +108,8 @@ AI-Notebook/
 │       ├── core/            # 健康检查、统一响应
 │       ├── users/           # 用户认证
 │       ├── notebooks/       # 笔记本 CRUD
-│       ├── documents/       # 文档上传与解析
-│       └── chat/            # AI 会话、RAG、联网搜索
+│       ├── documents/       # 文档上传、解析、OCR、视觉描述、重新解析
+│       └── chat/            # AI 会话、结构感知 RAG、联网搜索
 ├── docker-compose.dev.yml
 └── .env.example
 ```
@@ -128,6 +129,7 @@ AI-Notebook/
 | POST | `/api/v1/notebooks/{id}/favorite/` | 切换收藏 |
 | GET/POST | `/api/v1/notebooks/{id}/documents/` | 文档列表 / 上传 |
 | GET/DELETE | `/api/v1/documents/{id}/` | 文档详情 / 删除 |
+| POST | `/api/v1/documents/{id}/reparse/` | 重新解析文档 |
 | GET/POST | `/api/v1/notebooks/{id}/conversations/` | 会话列表 / 创建 |
 | GET | `/api/v1/conversations/{id}/messages/` | 消息列表 |
 | POST | `/api/v1/conversations/{id}/messages/send/` | 发送消息，支持本地 / 联网 / 混合搜索模式 |
@@ -140,9 +142,11 @@ $env:USE_SQLITE='true'
 backend\venv\Scripts\python.exe backend\manage.py check
 backend\venv\Scripts\python.exe backend\manage.py test apps.chat apps.documents
 
-# 前端类型检查
+# 前端检查与构建
 cd frontend
-cmd /c node_modules\.bin\vue-tsc.cmd --noEmit
+pnpm typecheck
+pnpm lint
+pnpm build
 ```
 
 完整规范见 [API 规范](docs/engineering/API规范.md)。
@@ -151,11 +155,14 @@ cmd /c node_modules\.bin\vue-tsc.cmd --noEmit
 
 - Chat 后端已拆出 `services.py` 和 `search_modes.py`，View 只负责 HTTP 边界和消息落库。
 - Chat 前端引用来源已拆为独立组件，支持文档 / 网页来源差异化展示。
+- RAG 已支持图片、表格、代码、标题等结构化片段意图增强、重排和引用诊断。
+- 文档解析已支持 OCR、视觉描述、重新解析和图片处理诊断。
 - 前端主要页面已统一圆角、移除跨平台不稳定字符图标，并按 `.gitattributes` 固定 LF 行尾。
 - 本地测试上传目录和一次性测试脚本已加入忽略规则，避免误提交本地数据。
 
 ## 文档
 
+- [文档目录](docs/README.md)
 - [产品路线图](docs/product/产品路线图.md)
 - [需求文档](docs/product/需求文档.md)
 - [架构设计](docs/engineering/架构设计.md)

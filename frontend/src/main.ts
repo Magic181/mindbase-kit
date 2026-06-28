@@ -1,9 +1,9 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
 import App from './App.vue'
 import router from './router'
 import { useUserStore } from './stores/user'
+import 'element-plus/theme-chalk/el-message.css'
 import './styles/main.css'
 
 async function bootstrap() {
@@ -16,7 +16,6 @@ async function bootstrap() {
   await userStore.initAuth()
 
   app.use(router)
-  app.use(ElementPlus)
 
   app.mount('#app')
 }

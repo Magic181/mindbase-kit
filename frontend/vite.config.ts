@@ -22,4 +22,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (
+          warning.code === 'INVALID_ANNOTATION' &&
+          warning.message.includes('#__PURE__')
+        ) {
+          return
+        }
+        warn(warning)
+      },
+    },
+  },
 })
