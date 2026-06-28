@@ -1,199 +1,166 @@
-# RAG架构设计
+# RAG 架构
+
+> 最后更新：2026-06-28
 
 ## 概述
 
-RAG (Retrieval-Augmented Generation) 是 AI Notebook 的核心能力，通过检索用户文档来增强 LLM 的回答质量。当前实现为轻量版本：文档解析、文本分块、关键词检索、Prompt 构建、DeepSeek 生成回答，并支持 Tavily 联网搜索作为可选外部资料来源。
+AI Notebook 当前 RAG 是轻量但结构感知的实现：文档解析产生结构化片段，本地检索按问题意图召回图片、表格、代码、标题等证据，随后进行重排、去重和引用诊断；Chat 还支持 Tavily 联网搜索和混合搜索。
 
-## 架构流程
+当前未接入 embedding 或向量数据库。向量检索、语义召回和外部 reranker 属于后续升级项。
+
+## 总体流程
 
 ```
 用户问题
-    │
-    ▼
-┌─────────────────┐
-│  Query Process  │  问题预处理、关键词提取
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Local Retrieval │  Notebook 文档关键词检索
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Web Search      │  可选 Tavily 联网搜索
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│Context Building │  本地片段 + 网页结果
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  LLM Generate   │  DeepSeek 生成回答
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Citation     │  文档 / 网页来源
-└─────────────────┘
+  → 搜索模式判断(local/web/hybrid)
+  → 本地检索：关键词召回 + 结构意图增强
+  → 联网搜索：Tavily 可选
+  → 证据重排、去重、多样性选择
+  → 构建回答 Prompt
+  → DeepSeek 生成
+  → 返回回答 + citations
 ```
 
-## 模块设计
+## 文档入库
 
-### 当前实现
-
-| 模块 | 文件 | 说明 |
-|------|------|------|
-| 文档解析 | `backend/apps/documents/parsers.py` | TXT/MD/PDF/DOCX 文本提取 |
-| 文本分块 | `backend/apps/documents/chunking.py` | 按段落和固定长度分块 |
-| 本地检索 | `backend/apps/chat/rag.py` | 基于关键词 `icontains` 检索文档片段 |
-| 联网搜索 | `backend/apps/chat/web_search.py` | Tavily Search，返回标题、摘要、链接 |
-| LLM 调用 | `backend/apps/chat/rag.py` | DeepSeek OpenAI-compatible Chat API |
-| 来源展示 | `Message.citations` | `document` 和 `web` 两类来源 |
-
-### 规划中的向量化升级
-
-### Embedding Service
-
-```python
-class EmbeddingService:
-    """向量化服务"""
-    
-    def embed_text(self, text: str) -> List[float]:
-        """单条文本向量化"""
-        
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """批量文本向量化"""
+```
+TXT / MD / PDF / DOCX
+  → parse_file_blocks
+  → paragraph / heading / table / code / page blocks
+  → chunk_blocks
+  → DocumentChunk(metadata.source_type)
+  → extract_assets
+  → OCR blocks(image_ocr)
+  → Vision blocks(image_caption)
 ```
 
-支持的模型：
-- OpenAI text-embedding-3-small/large
-- 本地模型 (Ollama)
+### 支持的片段类型
 
-### Vector Store
+| source_type | 来源 |
+|-------------|------|
+| paragraph | 普通段落 |
+| heading | Markdown/DOCX 标题 |
+| table | Markdown/DOCX 表格 |
+| code | Markdown 代码块 |
+| page | PDF 页文本 |
+| image_ocr | 图片 OCR 文本 |
+| image_caption | 视觉模型生成的图片描述 |
 
-```python
-class VectorStore:
-    """向量存储接口"""
-    
-    def insert(self, id: str, vector: List[float], metadata: dict):
-        """插入向量"""
-        
-    def search(self, vector: List[float], top_k: int = 10) -> List[SearchResult]:
-        """相似度搜索"""
-        
-    def delete(self, ids: List[str]):
-        """删除向量"""
-```
+## 本地检索
 
-支持的存储：
-- Milvus (生产)
-- ChromaDB (开发)
+模块：`backend/apps/chat/rag.py`
 
-### Reranker
+### 1. 问题 token 化
 
-```python
-class Reranker:
-    """重排序服务"""
-    
-    def rerank(self, query: str, documents: List[Document], top_k: int = 5) -> List[Document]:
-        """重排序"""
-```
+- 去除常见无效词，例如“帮我”“总结”“这个”。
+- 中文长词会拆成短片段，提高基础命中率。
+- Broad query 会触发更宽松的最近文档召回。
 
-### RAG Pipeline
+### 2. 意图识别
 
-```python
-class RAGPipeline:
-    """RAG流水线"""
-    
-    def __init__(self, embedding, vector_store, reranker, llm):
-        self.embedding = embedding
-        self.vector_store = vector_store
-        self.reranker = reranker
-        self.llm = llm
-    
-    async def query(self, question: str, notebook_id: int) -> RAGResponse:
-        """执行RAG查询"""
-        # 1. 问题向量化
-        # 2. 向量检索
-        # 3. 重排序
-        # 4. 构建上下文
-        # 5. LLM生成
-        # 6. 标注引用
-```
+当前识别四类问题意图：
 
-## 检索策略
+| 意图 | 典型词 |
+|------|--------|
+| image | 图片、截图、流程图、架构图、图中、diagram |
+| table | 表格、字段、列、行、统计、dataset |
+| code | 代码、函数、接口、脚本、报错、api |
+| heading | 标题、章节、目录、结构、outline |
 
-### 当前基础检索
+### 3. 结构加权
 
-- 对用户问题做简单 token 化
-- 在当前 Notebook 已完成解析的 `DocumentChunk.content` 中做关键词匹配
-- 取 Top K 片段并按关键词命中次数排序
+检索会给匹配意图的片段类型加权。例如：
 
-### 当前联网搜索
+- 图片问题优先 `image_caption` 和 `image_ocr`。
+- 表格问题优先 `table`。
+- 代码问题优先 `code`。
+- 结构/目录问题优先 `heading`。
 
-- 前端 Chat 页面选择“联网搜索”或“混合”模式
-- 后端按 `search_mode` 决定是否调用 Tavily Search
-- 搜索结果作为 `[W1]`、`[W2]` 加入上下文
-- 回答中可展示网页来源链接
+### 4. 证据重排
 
-### 后续混合检索
+每个候选片段会生成：
 
-- 向量搜索 + 关键词搜索
-- 分数融合
+- `retrieval_score`: 综合命中、结构类型、位置等因素的分数。
+- `retrieval_reason`: 给前端和调试使用的命中说明。
+- `evidence_key`: 用于去重，避免同一图片/同一段重复占满 Top K。
 
-### 多路召回
+最终会按分数和多样性选择 Top K。
 
-- 语义检索
-- 关键词检索
-- 元数据过滤
+## 联网搜索
 
-## 分块策略
+模块：`backend/apps/chat/web_search.py`
 
-### 固定大小分块
+| search_mode | 行为 |
+|-------------|------|
+| local | 只使用 Notebook 内已解析文档 |
+| web | 只使用 Tavily 搜索结果 |
+| hybrid | 同时使用本地文档和联网结果 |
 
-- 块大小：512 tokens
-- 重叠：50 tokens
+未配置 `TAVILY_API_KEY` 时，web/hybrid 会返回友好降级，不会让聊天接口崩溃。
 
-### 语义分块
+## 回答策略
 
-- 按段落/章节分割
-- 保持语义完整性
+模块：`backend/apps/chat/services.py`
 
-### 递归分块
+Prompt 会根据证据情况调整回答策略：
 
-- 先按大结构分割
-- 再按小结构细分
+- 有足够证据时，要求基于引用回答。
+- 证据不足时，明确说明缺口，避免编造。
+- 命中图片、表格、代码时，要求按对应结构解释。
+- 联网搜索结果会以 `[W1]`、`[W2]` 等来源加入上下文。
 
-## 引用标注
+## Citations
 
-### 引用格式
+文档 citation 示例：
 
 ```json
-[
-  {
-    "source_type": "document",
-    "document_id": 1,
-    "document_name": "论文.pdf",
-    "chunk_id": 5,
-    "chunk_text": "原文片段...",
-    "position": 4
-  },
-  {
-    "source_type": "web",
-    "title": "网页标题",
-    "url": "https://example.com",
-    "content": "网页摘要...",
-    "position": 1
+{
+  "source_type": "document",
+  "document_id": 1,
+  "document_name": "report.pdf",
+  "chunk_id": 12,
+  "chunk_text": "原文片段...",
+  "position": 3,
+  "metadata": {
+    "source_type": "image_caption",
+    "page": 2,
+    "asset_id": 4,
+    "asset_name": "diagram.png",
+    "vision_provider": "zhipu",
+    "vision_model": "glm-4.6v-flash",
+    "retrieval_score": 38,
+    "retrieval_reason": "匹配图片意图，命中流程图关键词"
   }
-]
+}
 ```
 
-### 引用链接
+网页 citation 示例：
 
-- 支持点击跳转到原文位置
-- 高亮显示引用内容
+```json
+{
+  "source_type": "web",
+  "title": "网页标题",
+  "url": "https://example.com",
+  "content": "网页摘要...",
+  "position": 1
+}
+```
 
-当前前端已支持网页来源点击打开链接；本地文档片段定位和高亮属于后续优化项。
+## 故障与降级
+
+| 场景 | 行为 |
+|------|------|
+| DeepSeek 未配置 Key | 返回 AI 配置不完整提示 |
+| DeepSeek 认证失败 | 返回认证失败提示 |
+| Tavily 未配置或失败 | web/hybrid 返回搜索降级说明 |
+| OCR 失败 | 文档仍可完成，文档卡片展示 OCR 错误 |
+| 视觉模型繁忙 | 自动重试，可配置 fallback，文档卡片展示友好错误 |
+| 本地没有命中证据 | 回答会说明未找到足够资料 |
+
+## 后续升级
+
+- Embedding 召回。
+- 向量数据库：Milvus、ChromaDB 或 pgvector。
+- Cross-encoder reranker。
+- 文档定位高亮。
+- 更细粒度的图片区域、表格单元格和代码符号引用。

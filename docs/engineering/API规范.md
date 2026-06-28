@@ -1,6 +1,6 @@
 # API 规范
 
-> 最后更新：2026-06-25
+> 最后更新：2026-06-28
 
 ## 基础规范
 
@@ -310,12 +310,33 @@ Authorization: Bearer <access_token>
     "file_size": 1024,
     "status": "completed",
     "chunk_count": 3,
+    "asset_count": 1,
+    "ocr_count": 1,
+    "ocr_pending_count": 0,
+    "ocr_failed_count": 0,
+    "ocr_skipped_count": 0,
+    "ocr_error_message": "",
+    "vision_count": 1,
+    "vision_pending_count": 0,
+    "vision_failed_count": 0,
+    "vision_skipped_count": 0,
+    "vision_error_message": "",
     "error_message": "",
     "created_at": "2026-06-25T08:00:00+08:00",
     "updated_at": "2026-06-25T08:00:00+08:00"
   }
 ]
 ```
+
+文档诊断字段说明：
+
+| 字段 | 说明 |
+|------|------|
+| asset_count | 文档内登记的图片资源数量 |
+| ocr_count / ocr_pending_count / ocr_failed_count / ocr_skipped_count | OCR 处理状态统计 |
+| ocr_error_message | 第一条 OCR 错误或跳过原因 |
+| vision_count / vision_pending_count / vision_failed_count / vision_skipped_count | 视觉描述处理状态统计 |
+| vision_error_message | 第一条视觉模型错误或跳过原因 |
 
 ### 上传文档
 
@@ -328,14 +349,33 @@ files=<file1>&files=<file2>
 
 支持：TXT、MD、PDF、DOCX。后端会先校验整批文件，再保存并触发解析任务，避免部分成功。
 
-### 文档详情 / 删除
+### 文档详情 / 删除 / 重新解析
 
 ```http
 GET /api/v1/documents/{id}/
 DELETE /api/v1/documents/{id}/
+POST /api/v1/documents/{id}/reparse/
 ```
 
 用户只能访问自己 Notebook 下的文档。
+
+重新解析会清空文档错误和旧分块，重新进入解析队列。正在上传或解析中的文档会返回 400：
+
+```json
+{
+  "code": 400,
+  "message": "请求参数错误",
+  "errors": [
+    {
+      "field": "status",
+      "message": "文档正在处理中，请完成后再重新解析"
+    }
+  ],
+  "data": null
+}
+```
+
+**重新解析响应 202：** 返回更新后的 Document 对象。
 
 ---
 
@@ -412,7 +452,14 @@ POST /api/v1/conversations/{conversation_id}/messages/send/
         "document_name": "notes.md",
         "chunk_id": 1,
         "chunk_text": "原文片段",
-        "position": 0
+        "position": 0,
+        "metadata": {
+          "source_type": "image_caption",
+          "retrieval_score": 32,
+          "retrieval_reason": "命中问题关键词，匹配图片意图",
+          "vision_provider": "zhipu",
+          "vision_model": "glm-4.6v-flash"
+        }
       },
       {
         "source_type": "web",
@@ -428,6 +475,8 @@ POST /api/v1/conversations/{conversation_id}/messages/send/
 ```
 
 `local` 模式只使用 Notebook 内已解析文档和模型通用能力；`web` 模式只使用 Tavily 联网搜索结果；`hybrid` 模式会同时使用 Notebook 文档片段和 Tavily 搜索结果。网页结果会作为 `[W1]`、`[W2]` 等来源加入上下文。
+
+本地检索会根据问题意图强化图片、表格、代码和标题片段，并在 citation metadata 中返回 `retrieval_score`、`retrieval_reason`、`source_type` 等诊断字段。图片视觉描述来源还会带 `vision_provider` 和 `vision_model`。
 
 ---
 
