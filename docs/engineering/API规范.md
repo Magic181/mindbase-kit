@@ -458,7 +458,7 @@ POST /api/v1/conversations/{conversation_id}/messages/send/
           "retrieval_score": 32,
           "retrieval_reason": "命中问题关键词，匹配图片意图",
           "vision_provider": "zhipu",
-          "vision_model": "glm-4.6v-flash"
+          "vision_model": "glm-4.6v-flashx"
         }
       },
       {

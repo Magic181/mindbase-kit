@@ -14,6 +14,7 @@ from apps.notebooks.models import Notebook
 from .assets import extract_assets
 from .chunking import chunk_blocks
 from .models import Document, DocumentAsset, DocumentChunk, DocumentStatus
+from .ocr import _normalize_ocr_text
 from .parsers import _docx_heading_level, parse_file, parse_file_blocks
 from .serializers import DocumentSerializer
 from .tasks import parse_document_task
@@ -129,6 +130,34 @@ class DocumentUploadTests(TransactionTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         enqueue_parse_task.assert_not_called()
+
+    @patch('apps.documents.views.logger')
+    @patch('apps.documents.views.delete_file', side_effect=OSError('file is locked'))
+    def test_delete_document_removes_database_record_when_file_cleanup_fails(
+        self,
+        delete_file,
+        logger,
+    ):
+        document = Document.objects.create(
+            notebook=self.notebook,
+            name='notes.md',
+            file_path='files/notes.md',
+            file_type='md',
+            status=DocumentStatus.COMPLETED,
+        )
+        DocumentAsset.objects.create(
+            document=document,
+            file_path='files/assets/image.png',
+            original_name='image.png',
+        )
+
+        response = self.client.delete(f'/api/v1/documents/{document.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Document.objects.filter(id=document.id).exists())
+        self.assertFalse(DocumentAsset.objects.filter(document_id=document.id).exists())
+        self.assertEqual(delete_file.call_count, 2)
+        self.assertEqual(logger.warning.call_count, 2)
 
     @staticmethod
     def _file(name: str, content: bytes):
@@ -372,7 +401,7 @@ class VisionProviderTests(TestCase):
 
     @patch.dict('os.environ', {
         'VISION_PROVIDER': 'zhipu',
-        'VISION_MODEL': 'glm-4.6v-flash',
+        'VISION_MODEL': 'glm-4.6v-flashx',
         'VISION_TIMEOUT_SECONDS': '10',
         'VISION_THINKING': 'disabled',
     }, clear=True)
@@ -403,7 +432,7 @@ class VisionProviderTests(TestCase):
 
     @patch.dict('os.environ', {
         'VISION_PROVIDER': 'zhipu',
-        'VISION_MODEL': 'glm-4.6v-flash',
+        'VISION_MODEL': 'glm-4.6v-flashx',
         'VISION_RETRY_ATTEMPTS': '2',
         'VISION_RETRY_BACKOFF_SECONDS': '0',
     }, clear=True)
@@ -423,14 +452,14 @@ class VisionProviderTests(TestCase):
 
         self.assertEqual(result['status'], DocumentAsset.VisionStatus.FAILED)
         self.assertEqual(post.call_count, 2)
-        self.assertIn('glm-4.6v-flash', result['error'])
+        self.assertIn('glm-4.6v-flashx', result['error'])
         self.assertIn('智谱返回错误 1305', result['error'])
         self.assertIn('重新解析', result['error'])
         self.assertIn('已尝试 2 次', result['error'])
 
     @patch.dict('os.environ', {
         'VISION_PROVIDER': 'zhipu',
-        'VISION_MODEL': 'glm-4.6v-flash',
+        'VISION_MODEL': 'glm-4.6v-flashx',
         'VISION_FALLBACK_MODELS': 'glm-backup-vision',
         'VISION_RETRY_ATTEMPTS': '1',
     }, clear=True)
@@ -458,11 +487,11 @@ class VisionProviderTests(TestCase):
         self.assertEqual(result['model'], 'glm-backup-vision')
         self.assertEqual(post.call_count, 2)
         sent_models = [call.kwargs['json']['model'] for call in post.call_args_list]
-        self.assertEqual(sent_models, ['glm-4.6v-flash', 'glm-backup-vision'])
+        self.assertEqual(sent_models, ['glm-4.6v-flashx', 'glm-backup-vision'])
 
     @patch.dict('os.environ', {
         'VISION_PROVIDER': 'zhipu',
-        'VISION_MODEL': 'glm-4.6v-flash',
+        'VISION_MODEL': 'glm-4.6v-flashx',
         'VISION_FALLBACK_MODELS': 'glm-backup-vision',
         'VISION_RETRY_ATTEMPTS': '3',
         'VISION_RETRY_BACKOFF_SECONDS': '0',
@@ -484,6 +513,13 @@ class VisionProviderTests(TestCase):
         self.assertEqual(post.call_count, 1)
         self.assertIn('鉴权失败', result['error'])
         self.assertNotIn('invalid api key', result['error'])
+
+
+class OcrTests(TestCase):
+    def test_normalize_ocr_text_handles_empty_output(self):
+        self.assertEqual(_normalize_ocr_text(None), '')
+        self.assertEqual(_normalize_ocr_text(''), '')
+        self.assertEqual(_normalize_ocr_text('  第一行  \n\n第二行  '), '第一行\n第二行')
 
 
 class ParseDocumentTaskTests(TransactionTestCase):

@@ -23,5 +23,9 @@ urlpatterns = [
         views.ConversationSendMessageView.as_view(),
         name="conversation-send",
     ),
+    path(
+        "conversations/<int:conversation_pk>/messages/send/stream/",
+        views.ConversationSendMessageStreamView.as_view(),
+        name="conversation-send-stream",
+    ),
 ]
-

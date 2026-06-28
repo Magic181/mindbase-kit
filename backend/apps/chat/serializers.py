@@ -17,6 +17,18 @@ class ConversationCreateSerializer(serializers.ModelSerializer):
         fields = ('title',)
 
 
+class ConversationUpdateSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(
+        allow_blank=True,
+        max_length=100,
+        trim_whitespace=True,
+    )
+
+    class Meta:
+        model = Conversation
+        fields = ('title',)
+
+
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message

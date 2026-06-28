@@ -63,6 +63,8 @@ def _run_tesseract(command: str, image_path: Path) -> dict[str, str]:
             args,
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=timeout,
             check=False,
         )
@@ -128,6 +130,8 @@ def _tesseract_command() -> str:
     return configured if shutil.which(configured) else ''
 
 
-def _normalize_ocr_text(text: str) -> str:
+def _normalize_ocr_text(text: str | None) -> str:
+    if not text:
+        return ''
     lines = [line.strip() for line in text.splitlines()]
     return '\n'.join(line for line in lines if line).strip()

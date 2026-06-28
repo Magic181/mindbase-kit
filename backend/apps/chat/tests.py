@@ -10,9 +10,17 @@ from apps.documents.models import Document, DocumentChunk, DocumentStatus
 from apps.notebooks.models import Notebook
 
 from .models import Conversation, Message, MessageRole
-from .rag import Citation, DeepSeekAuthError, build_prompt, call_deepseek_chat, retrieve_citations
+from .rag import (
+    Citation,
+    DeepSeekAuthError,
+    build_prompt,
+    call_deepseek_chat,
+    retrieve_citations,
+    strip_inline_source_markers,
+)
 from .services import (
     AI_FAILURE_MESSAGE,
+    AssistantContext,
     WEB_ONLY_SEARCH_DEGRADED_MESSAGE,
     WEB_SEARCH_DEGRADED_MESSAGE,
     build_citation_payload,
@@ -122,13 +130,13 @@ class ConversationSendMessageTests(TestCase):
 
         response = self.client.post(
             f'/api/v1/conversations/{self.conversation.id}/messages/send/',
-            {'content': '混合搜索问题', 'search_mode': 'hybrid'},
+            {'content': '文档混合搜索问题', 'search_mode': 'hybrid'},
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        retrieve_citations.assert_called_once_with(self.notebook.id, '混合搜索问题', top_k=5)
-        search_web.assert_called_once_with('混合搜索问题')
+        retrieve_citations.assert_called_once_with(self.notebook.id, '文档混合搜索问题', top_k=5)
+        search_web.assert_called_once_with('文档混合搜索问题')
 
     @patch('apps.chat.services.search_web')
     @patch('apps.chat.services.retrieve_citations', return_value=[])
@@ -143,13 +151,13 @@ class ConversationSendMessageTests(TestCase):
 
         response = self.client.post(
             f'/api/v1/conversations/{self.conversation.id}/messages/send/',
-            {'content': '旧参数问题', 'web_search': True},
+            {'content': '文档旧参数问题', 'web_search': True},
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        retrieve_citations.assert_called_once_with(self.notebook.id, '旧参数问题', top_k=5)
-        search_web.assert_called_once_with('旧参数问题')
+        retrieve_citations.assert_called_once_with(self.notebook.id, '文档旧参数问题', top_k=5)
+        search_web.assert_called_once_with('文档旧参数问题')
 
     @patch('apps.chat.services.logger')
     @patch('apps.chat.services.search_web', side_effect=WebSearchError('search unavailable'))
@@ -238,6 +246,109 @@ class ConversationSendMessageTests(TestCase):
         self.assertEqual(messages[2]['content'], '暂时没有读到资料片段。')
         self.assertIn('用户问题：现在呢', messages[-1]['content'])
 
+    @patch('apps.chat.services.retrieve_citations')
+    @patch('apps.chat.services.call_deepseek_chat', return_value='我是 AI Notebook 的资料协作助手。')
+    def test_general_model_question_skips_local_citations(
+        self,
+        call_deepseek_chat,
+        retrieve_citations,
+    ):
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/',
+            {'content': '你是什么模型'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        retrieve_citations.assert_not_called()
+
+        assistant = Message.objects.filter(role=MessageRole.ASSISTANT).latest('id')
+        self.assertEqual(assistant.content, '我是 AI Notebook 的资料协作助手。')
+        self.assertEqual(assistant.citations, [])
+
+        messages = call_deepseek_chat.call_args.args[0]
+        self.assertIn('资料片段：无', messages[-1]['content'])
+
+    @patch('apps.chat.services.retrieve_citations')
+    @patch('apps.chat.services.call_deepseek_chat', return_value='这是一个普通回答。')
+    def test_unrelated_question_skips_local_citations(
+        self,
+        _,
+        retrieve_citations,
+    ):
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/',
+            {'content': '今天天气怎么样'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        retrieve_citations.assert_not_called()
+
+        assistant = Message.objects.filter(role=MessageRole.ASSISTANT).latest('id')
+        self.assertEqual(assistant.citations, [])
+
+    @patch('apps.chat.services.retrieve_citations', return_value=[])
+    @patch('apps.chat.services.call_deepseek_chat', return_value='资料回答。')
+    def test_document_model_question_still_uses_local_retrieval(
+        self,
+        _,
+        retrieve_citations,
+    ):
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/',
+            {'content': '文档里提到了什么大模型'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        retrieve_citations.assert_called_once_with(
+            self.notebook.id,
+            '文档里提到了什么大模型',
+            top_k=5,
+        )
+
+    @patch('apps.chat.views.stream_deepseek_chat', return_value=iter(['你好', '，这是流式回答。']))
+    @patch('apps.chat.views.prepare_assistant_context')
+    def test_stream_message_emits_events_and_saves_messages(
+        self,
+        prepare_assistant_context,
+        stream_deepseek_chat,
+    ):
+        prepare_assistant_context.return_value = AssistantContext(
+            messages=[{'role': 'user', 'content': 'hi'}],
+            citations=[],
+            web_results=[],
+            degraded_message='',
+        )
+
+        response = self.client.post(
+            f'/api/v1/conversations/{self.conversation.id}/messages/send/stream/',
+            {'content': '请流式回答'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'text/event-stream; charset=utf-8')
+
+        body = b''.join(response.streaming_content).decode('utf-8')
+        self.assertIn('event: user_message', body)
+        self.assertIn('event: delta', body)
+        self.assertIn('"content": "你好"', body)
+        self.assertIn('"content": "，这是流式回答。"', body)
+        self.assertIn('event: assistant_message', body)
+        self.assertIn('event: done', body)
+
+        messages = list(Message.objects.order_by('created_at'))
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(messages[0].role, MessageRole.USER)
+        self.assertEqual(messages[0].content, '请流式回答')
+        self.assertEqual(messages[1].role, MessageRole.ASSISTANT)
+        self.assertEqual(messages[1].content, '你好，这是流式回答。')
+
+        prepare_assistant_context.assert_called_once()
+        stream_deepseek_chat.assert_called_once_with([{'role': 'user', 'content': 'hi'}])
+
 
 class ConversationDeleteTests(TestCase):
     def setUp(self):
@@ -294,6 +405,60 @@ class ConversationDeleteTests(TestCase):
         self.assertTrue(Conversation.objects.filter(id=other_conversation.id).exists())
 
 
+class ConversationUpdateTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username='rename-user',
+            email='rename@example.com',
+            password='test-password',
+        )
+        self.other_user = user_model.objects.create_user(
+            username='other-rename-user',
+            email='other-rename@example.com',
+            password='test-password',
+        )
+        self.notebook = Notebook.objects.create(user=self.user, name='Rename notebook')
+        self.other_notebook = Notebook.objects.create(
+            user=self.other_user,
+            name='Other rename notebook',
+        )
+        self.conversation = Conversation.objects.create(
+            notebook=self.notebook,
+            title='Old title',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_update_conversation_title(self):
+        response = self.client.patch(
+            f'/api/v1/conversations/{self.conversation.id}/',
+            {'title': 'New title'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.conversation.refresh_from_db()
+        self.assertEqual(self.conversation.title, 'New title')
+        self.assertEqual(response.data['title'], 'New title')
+
+    def test_update_other_users_conversation_returns_not_found(self):
+        other_conversation = Conversation.objects.create(
+            notebook=self.other_notebook,
+            title='Not yours',
+        )
+
+        response = self.client.patch(
+            f'/api/v1/conversations/{other_conversation.id}/',
+            {'title': 'Changed'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        other_conversation.refresh_from_db()
+        self.assertEqual(other_conversation.title, 'Not yours')
+
+
 class BuildPromptTests(TestCase):
     def test_prompt_allows_general_questions_but_keeps_rag_guardrail(self):
         messages = build_prompt('你是什么模型', [])
@@ -305,7 +470,7 @@ class BuildPromptTests(TestCase):
         self.assertIn('如果这是通用问题，可以直接回答', messages[1]['content'])
         self.assertIn('资料片段：无', messages[1]['content'])
 
-    def test_prompt_includes_web_results_with_web_source_numbers(self):
+    def test_prompt_includes_web_results_without_inline_source_markers(self):
         messages = build_prompt(
             '联网搜索问题',
             [],
@@ -320,8 +485,16 @@ class BuildPromptTests(TestCase):
         )
 
         self.assertIn('网页结果', messages[1]['content'])
-        self.assertIn('[W1] 网页：Web title', messages[1]['content'])
+        self.assertIn('网页来源 1：Web title', messages[1]['content'])
+        self.assertNotIn('[W1]', messages[1]['content'])
         self.assertIn('https://example.com', messages[1]['content'])
+
+    def test_strip_inline_source_markers_removes_noisy_citation_tokens(self):
+        text = strip_inline_source_markers(
+            '天气信息来自网页[W1][W4]，也参考资料【2】 和来源 【W5】。'
+        )
+
+        self.assertEqual(text, '天气信息来自网页，也参考资料和来源。')
 
     def test_prompt_marks_available_document_context_and_limits_image_claims(self):
         messages = build_prompt(
@@ -483,7 +656,7 @@ class RetrieveCitationTests(TestCase):
         self.notebook = Notebook.objects.create(user=self.user, name='RAG notebook')
         self.document = Document.objects.create(
             notebook=self.notebook,
-            name='report.docx',
+            name='实验课小组大论文.docx',
             file_path='files/report.docx',
             file_type='docx',
             status=DocumentStatus.COMPLETED,
@@ -540,7 +713,30 @@ class RetrieveCitationTests(TestCase):
         citations = retrieve_citations(self.notebook.id, '我上传的文件你能读到吗', top_k=1)
 
         self.assertEqual(len(citations), 1)
-        self.assertIn('项目背景', citations[0].chunk_text)
+        self.assertEqual(citations[0].source_type, 'document_overview')
+        self.assertIn('文档解析概况', citations[0].chunk_text)
+        self.assertIn('解析片段数', citations[0].chunk_text)
+
+    def test_document_name_match_prefers_target_document_over_requirements_pdf(self):
+        requirements = Document.objects.create(
+            notebook=self.notebook,
+            name='嵌入式系统实验期末考核说明.pdf',
+            file_path='files/requirements.pdf',
+            file_type='pdf',
+            status=DocumentStatus.COMPLETED,
+            chunk_count=1,
+        )
+        DocumentChunk.objects.create(
+            document=requirements,
+            content='小组大论文要求包括实验任务说明、系统总体设计、代码实现和调试过程。',
+            position=0,
+            metadata={'source_type': 'page', 'page': 1},
+        )
+
+        citations = retrieve_citations(self.notebook.id, '帮我看看我的大论文正文', top_k=1)
+
+        self.assertEqual(len(citations), 1)
+        self.assertEqual(citations[0].document_name, '实验课小组大论文.docx')
 
     def test_specific_miss_does_not_return_unrelated_context(self):
         citations = retrieve_citations(self.notebook.id, '量子计算复杂度', top_k=1)

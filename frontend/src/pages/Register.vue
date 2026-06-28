@@ -1,8 +1,11 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-[var(--bg-secondary)]">
-    <div class="w-full max-w-md rounded-lg bg-[var(--bg)] p-8 shadow-sm">
-      <h1 class="text-center text-xl font-semibold text-[var(--text)]">注册</h1>
-      <p class="mt-2 text-center text-sm text-[var(--text-secondary)]">
+  <div class="flex min-h-screen items-center justify-center bg-surface-secondary px-4">
+    <div class="gemini-rise w-full max-w-md rounded-2xl border border-line bg-surface-elevated p-8 shadow-gmd">
+      <div class="mx-auto mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-sm font-bold text-primary">
+        AI
+      </div>
+      <h1 class="text-center text-xl font-semibold tracking-tight text-content">创建账号</h1>
+      <p class="mt-1.5 text-center text-sm text-content-secondary">
         创建你的 AI 知识工作台账号
       </p>
       <form class="mt-6 space-y-4" @submit.prevent="handleRegister">
@@ -33,9 +36,9 @@
           {{ loading ? '注册中...' : '注册' }}
         </BaseButton>
       </form>
-      <p class="mt-4 text-center text-sm text-[var(--text-secondary)]">
+      <p class="mt-6 text-center text-sm text-content-secondary">
         已有账号？
-        <router-link to="/login" class="text-[var(--primary)] hover:underline">
+        <router-link to="/login" class="font-medium text-primary hover:underline">
           立即登录
         </router-link>
       </p>

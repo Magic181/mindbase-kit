@@ -1,39 +1,70 @@
 <template>
-  <div v-if="citations.length" class="mt-2 space-y-2">
-    <p class="text-xs text-[var(--text-secondary)]">引用来源</p>
+  <div v-if="citations.length" class="citation-section">
+    <div class="citation-section-header">
+      <div class="flex items-center gap-2">
+        <span class="citation-section-mark" />
+        <p class="text-xs font-semibold text-content-secondary">引用来源</p>
+      </div>
+      <span class="text-[11px] text-content-secondary">{{ citations.length }} 条证据</span>
+    </div>
     <div
       v-for="(citation, index) in citations"
       :key="citationKey(citation, index)"
-      class="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 text-xs text-[var(--text-secondary)]"
+      class="citation-card group rounded-2xl p-4 text-sm transition-all duration-300"
     >
       <template v-if="isWebCitation(citation)">
         <div class="flex items-start justify-between gap-3">
-          <a
-            :href="citation.url"
-            target="_blank"
-            rel="noreferrer"
-            class="min-w-0 flex-1 truncate font-medium text-[var(--primary)] hover:underline"
-          >
-            {{ citation.title }}
-          </a>
-          <span class="shrink-0 text-[var(--text-secondary)]">网页 #{{ citation.position }}</span>
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="citation-icon">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20" />
+                <path d="M12 2a15.3 15.3 0 0 1 0 20" />
+                <path d="M12 2a15.3 15.3 0 0 0 0 20" />
+              </svg>
+            </span>
+            <a
+              :href="citation.url"
+              target="_blank"
+              rel="noreferrer"
+              class="min-w-0 truncate text-[15px] font-semibold text-content transition-colors group-hover:text-primary"
+            >
+              {{ citation.title }}
+            </a>
+          </div>
+          <span class="citation-meta">网页 #{{ citation.position }}</span>
         </div>
-        <p class="mt-1 break-words text-[var(--text-secondary)]">{{ citation.url }}</p>
-        <p class="mt-2 line-clamp-3 break-words">{{ citation.content }}</p>
+        <div class="mt-3 flex flex-wrap gap-1.5">
+          <span class="citation-tag">联网来源</span>
+        </div>
+        <p class="mt-2 break-words text-xs text-content-secondary">{{ citation.url }}</p>
+        <p class="mt-2 line-clamp-3 break-words text-sm leading-6 text-content-secondary">
+          {{ citation.content }}
+        </p>
       </template>
 
       <template v-else>
         <div class="flex items-start justify-between gap-3">
-          <p class="min-w-0 flex-1 truncate font-medium text-[var(--text)]">
-            {{ citation.document_name }}
-          </p>
-          <span class="shrink-0 rounded bg-[var(--bg-secondary)] px-2 py-0.5 text-[var(--text-secondary)]">
-            {{ documentSourceLabel(citation.document_source_type) }} #{{ citation.position }}
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="citation-icon">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M8 13h8" />
+                <path d="M8 17h5" />
+              </svg>
+            </span>
+            <p class="min-w-0 truncate text-[15px] font-semibold text-content">
+              {{ citation.document_name }}
+            </p>
+          </div>
+          <span class="citation-meta">
+            {{ documentMetaLabel(citation) }}
           </span>
         </div>
         <p
           v-if="documentSourceDetail(citation)"
-          class="mt-1 text-[var(--text-secondary)]"
+          class="mt-2 text-xs leading-5 text-content-secondary"
         >
           {{ documentSourceDetail(citation) }}
         </p>
@@ -43,13 +74,16 @@
         >
           <span
             v-for="badge in documentEvidenceBadges(citation)"
-            :key="badge"
-            class="rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]"
+            :key="badge.label"
+            class="citation-tag"
+            :class="badge.tone === 'neutral' ? 'citation-tag-neutral' : ''"
           >
-            {{ badge }}
+            {{ badge.label }}
           </span>
         </div>
-        <p class="mt-2 line-clamp-3 break-words">{{ citation.chunk_text }}</p>
+        <p class="mt-3 line-clamp-3 break-words text-sm leading-6 text-content-secondary">
+          {{ citationPreview(citation) }}
+        </p>
       </template>
     </div>
   </div>
@@ -86,13 +120,22 @@ function documentSourceLabel(sourceType?: string) {
   return labels[sourceType || ''] || '文本'
 }
 
+function documentMetaLabel(citation: DocumentCitation) {
+  const metadata = citation.metadata || {}
+  const page = numberValue(metadata.page)
+  const tableIndex = numberValue(metadata.table_index)
+  const assetPosition = numberValue(metadata.asset_position)
+
+  if (assetPosition !== null) return `图 #${displayOrdinal(assetPosition)}`
+  if (tableIndex !== null) return `表 #${displayOrdinal(tableIndex)}`
+  if (page !== null) return `第 ${page} 页`
+  return `${documentSourceLabel(citation.document_source_type)} #${citation.position}`
+}
+
 function documentSourceDetail(citation: DocumentCitation) {
   const metadata = citation.metadata || {}
   const parts: string[] = []
-  const page = numberValue(metadata.page)
   const headingLevel = numberValue(metadata.heading_level)
-  const tableIndex = numberValue(metadata.table_index)
-  const assetPosition = numberValue(metadata.asset_position)
   const language = stringValue(metadata.language)
   const assetName = stringValue(metadata.asset_name)
   const visionProvider = stringValue(metadata.vision_provider)
@@ -100,10 +143,8 @@ function documentSourceDetail(citation: DocumentCitation) {
   const source = stringValue(metadata.source)
   const target = stringValue(metadata.target)
 
-  if (page !== null) parts.push(`第 ${page} 页`)
+  parts.push(documentSourceLabel(citation.document_source_type))
   if (headingLevel !== null) parts.push(`${headingLevel} 级标题`)
-  if (tableIndex !== null) parts.push(`表格 ${displayIndex(tableIndex)}`)
-  if (assetPosition !== null) parts.push(`图片 ${assetPosition + 1}`)
   if (language) parts.push(language)
   if (assetName) parts.push(assetName)
   if (visionProvider) parts.push(`视觉服务 ${visionProvider}`)
@@ -115,7 +156,7 @@ function documentSourceDetail(citation: DocumentCitation) {
 
 function documentEvidenceBadges(citation: DocumentCitation) {
   const metadata = citation.metadata || {}
-  const badges: string[] = []
+  const badges: Array<{ label: string; tone?: 'green' | 'neutral' }> = []
   const reason = stringValue(metadata.retrieval_reason)
   const score = numberValue(metadata.retrieval_score)
 
@@ -124,11 +165,18 @@ function documentEvidenceBadges(citation: DocumentCitation) {
       ...reason
         .split('+')
         .map((item) => retrievalReasonLabel(item))
-        .filter(Boolean),
+        .filter(Boolean)
+        .map((label) => ({ label })),
     )
   }
-  if (score !== null) badges.push(`相关度 ${score}`)
-  return [...new Set(badges)]
+  if (score !== null) badges.push({ label: `相关度: ${score}` })
+
+  const uniqueLabels = new Set<string>()
+  return badges.filter((badge) => {
+    if (uniqueLabels.has(badge.label)) return false
+    uniqueLabels.add(badge.label)
+    return true
+  })
 }
 
 function retrievalReasonLabel(reason: string) {
@@ -140,8 +188,16 @@ function retrievalReasonLabel(reason: string) {
   return labels[reason] || ''
 }
 
-function displayIndex(value: number) {
-  return value <= 0 ? value + 1 : value
+function citationPreview(citation: DocumentCitation) {
+  return citation.chunk_text
+    .replace(/^\[(图片\s*OCR|图片视觉描述|图片描述|表格|代码|正文|标题)\s*#?\d*\]\s*/i, '')
+    .replace(/^OCR 文本：\s*/, '')
+    .replace(/^视觉描述：\s*/, '')
+    .trim()
+}
+
+function displayOrdinal(value: number) {
+  return value + 1
 }
 
 function numberValue(value: unknown) {
@@ -152,3 +208,102 @@ function stringValue(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 </script>
+
+<style scoped>
+.citation-section {
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(226, 237, 231, 0.86);
+}
+
+.citation-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.citation-section-mark {
+  height: 0.375rem;
+  width: 0.375rem;
+  border-radius: 9999px;
+  background: #10b981;
+}
+
+.citation-card {
+  margin-top: 0.625rem;
+  background: #fbfdfc;
+  box-shadow: inset 0 0 0 1px rgba(226, 237, 231, 0.58);
+}
+
+.citation-card:hover {
+  background: #f1faf6;
+  box-shadow:
+    inset 0 0 0 1px rgba(16, 185, 129, 0.16),
+    0 10px 24px -22px rgba(16, 185, 129, 0.24);
+}
+
+.citation-icon {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: #047857;
+  background: #e6f4ea;
+}
+
+.citation-meta {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(226, 237, 231, 0.9);
+  background: rgba(255, 255, 255, 0.76);
+  padding: 0.125rem 0.55rem;
+  color: #8a9891;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.citation-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: #e6f4ea;
+  padding: 0.25rem 0.625rem;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.citation-tag-neutral {
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
+}
+
+:global(.dark) .citation-card {
+  background: rgba(30, 36, 33, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(42, 53, 48, 0.78);
+}
+
+:global(.dark) .citation-section {
+  border-top-color: rgba(42, 53, 48, 0.86);
+}
+
+:global(.dark) .citation-card:hover {
+  background: rgba(16, 185, 129, 0.10);
+  box-shadow:
+    inset 0 0 0 1px rgba(16, 185, 129, 0.22),
+    0 14px 30px -24px rgba(16, 185, 129, 0.32);
+}
+
+:global(.dark) .citation-meta,
+:global(.dark) .citation-tag-neutral {
+  background: rgba(18, 22, 20, 0.72);
+  border-color: rgba(42, 53, 48, 0.9);
+}
+</style>

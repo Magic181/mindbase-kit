@@ -1,25 +1,29 @@
 <template>
   <div
-    class="rounded-lg border-2 border-dashed border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-center transition-colors"
+    class="rounded-glg border-2 border-dashed border-line bg-surface-secondary p-8 text-center transition-all"
     :class="[
-      isDragging ? 'border-[var(--primary)] bg-[var(--primary)]/5' : '',
+      isDragging ? 'border-primary bg-primary-soft' : 'hover:border-primary/40',
       uploading ? 'pointer-events-none opacity-70' : '',
     ]"
     @dragover.prevent="isDragging = true"
     @dragleave.prevent="isDragging = false"
     @drop.prevent="handleDrop"
   >
-    <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg)]">
-      <span class="h-5 w-5 rounded border-2 border-[var(--primary)] border-t-transparent" />
+    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-pill bg-gemini-accent text-white shadow-gmd">
+      <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
     </div>
-    <p class="mt-3 font-medium text-[var(--text)]">拖拽文件到此处上传</p>
-    <p class="mt-2 text-sm text-[var(--text-secondary)]">
+    <p class="mt-4 font-medium text-content">拖拽文件到此处上传</p>
+    <p class="mt-2 text-sm text-content-secondary">
       支持 TXT、MD、PDF、DOCX，单文件最大 20MB
     </p>
-    <p v-if="isDragging" class="mt-2 text-xs font-medium text-[var(--primary)]">
+    <p v-if="isDragging" class="mt-2 text-xs font-medium text-primary">
       松开鼠标开始上传
     </p>
-    <label class="mt-4 inline-block cursor-pointer">
+    <label class="mt-5 inline-block cursor-pointer">
       <input
         type="file"
         class="hidden"
@@ -29,7 +33,7 @@
         @change="handleFileSelect"
       />
       <span
-        class="inline-flex rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
+        class="gemini-btn gemini-btn-primary"
         :class="uploading ? 'pointer-events-none opacity-50' : ''"
       >
         {{ uploading ? '上传中...' : '选择文件' }}

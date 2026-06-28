@@ -17,6 +17,10 @@ VISION_PROVIDERS = {
     VISION_PROVIDER_OPENAI_COMPATIBLE,
     VISION_PROVIDER_ZHIPU,
 }
+DEFAULT_VISION_MODELS = {
+    VISION_PROVIDER_OPENAI_COMPATIBLE: 'gpt-4o-mini',
+    VISION_PROVIDER_ZHIPU: 'glm-4.6v-flashx',
+}
 VISION_TRANSIENT_ERROR_CODES = {'1305'}
 VISION_TRANSIENT_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
@@ -78,7 +82,7 @@ def _call_vision_model(asset: DocumentAsset, image_path: Path, api_key: str) -> 
     model_errors: list[dict[str, Any]] = []
     last_result: dict[str, Any] | None = None
 
-    for model in _vision_model_candidates():
+    for model in _vision_model_candidates(provider):
         errors: list[str] = []
         attempts_used = 0
         for attempt in range(1, retry_attempts + 1):
@@ -218,8 +222,9 @@ def _vision_failure(
     }
 
 
-def _vision_model_candidates() -> list[str]:
-    primary = os.getenv('VISION_MODEL', 'gpt-4o-mini').strip() or 'gpt-4o-mini'
+def _vision_model_candidates(provider: str) -> list[str]:
+    default_model = DEFAULT_VISION_MODELS.get(provider, DEFAULT_VISION_MODELS[VISION_PROVIDER_OPENAI_COMPATIBLE])
+    primary = os.getenv('VISION_MODEL', default_model).strip() or default_model
     models = [primary, *_comma_separated_env('VISION_FALLBACK_MODELS')]
     candidates: list[str] = []
     for model in models:

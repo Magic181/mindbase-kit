@@ -1,7 +1,7 @@
 <template>
   <button
     :class="[
-      'rounded-lg text-sm font-medium transition-colors disabled:opacity-50',
+      'gemini-btn',
       fullWidth ? 'w-full' : '',
       variantClass,
       sizeClass,
@@ -26,13 +26,13 @@ const props = withDefaults(
 )
 
 const variantClass = {
-  primary: 'bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]',
-  ghost: 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]',
-  danger: 'bg-red-500 text-white hover:bg-red-600',
+  primary: 'gemini-btn-primary',
+  ghost: 'gemini-btn-ghost',
+  danger: 'gemini-btn-danger',
 }[props.variant]
 
 const sizeClass = {
-  sm: 'px-3 py-2',
-  md: 'px-4 py-3',
+  sm: 'gemini-btn-sm',
+  md: '',
 }[props.size]
 </script>

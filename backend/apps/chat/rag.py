@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import time
@@ -8,7 +9,7 @@ import requests
 from requests import exceptions as request_exceptions
 from django.db.models import Q
 
-from apps.documents.models import DocumentChunk, DocumentStatus
+from apps.documents.models import Document, DocumentChunk, DocumentStatus
 
 from .web_search import WebResult
 
@@ -158,6 +159,7 @@ SOURCE_INTENT_TERMS = {
 }
 
 SOURCE_TYPE_BOOSTS = {
+    'document_overview': {},
     'image_caption': {'image': 14},
     'image_ocr': {'image': 12},
     'table': {'table': 14},
@@ -221,7 +223,18 @@ def _is_broad_context_query(query: str) -> bool:
 
 def _is_document_availability_query(query: str) -> bool:
     lowered = query.lower()
-    direct_terms = ('能读到', '读得到', '读取到', '看得到', '识别到')
+    direct_terms = (
+        '能读到',
+        '读得到',
+        '读到',
+        '没读到',
+        '读取到',
+        '读取',
+        '只读',
+        '只读取',
+        '看得到',
+        '识别到',
+    )
     if any(term in lowered for term in direct_terms):
         return True
     has_upload_subject = any(term in lowered for term in ('上传', '文件', '文档', '资料'))
@@ -264,10 +277,20 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
     tokens = _tokenize(query)
     intent = _detect_query_intent(query)
     is_broad_context_query = _is_broad_context_query(query)
+    is_document_availability_query = _is_document_availability_query(query)
+    overview_citations = (
+        _document_overview_citations(notebook_id, max_docs=min(3, top_k))
+        if is_document_availability_query
+        else []
+    )
+    remaining_top_k = max(0, top_k - len(overview_citations))
+    if remaining_top_k <= 0:
+        return overview_citations[:top_k]
+
     use_broad_ranking = (
         is_broad_context_query
         and not intent.fallback_source_types
-        and _is_document_availability_query(query)
+        and is_document_availability_query
     )
     base_qs = DocumentChunk.objects.select_related('document').filter(
         document__notebook_id=notebook_id,
@@ -277,10 +300,15 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
 
     chunks: list[DocumentChunk] = []
     if tokens:
-        token_q = Q()
+        content_q = Q()
+        name_q = Q()
         for t in tokens:
-            token_q |= Q(content__icontains=t)
-        chunks.extend(base_qs.filter(token_q).order_by('-id')[:candidate_limit])
+            content_q |= Q(content__icontains=t)
+            if _is_document_name_token(t):
+                name_q |= Q(document__name__icontains=t)
+        chunks.extend(base_qs.filter(content_q).order_by('-id')[:candidate_limit])
+        if name_q:
+            chunks.extend(base_qs.filter(name_q).order_by('-document__created_at', 'position')[:candidate_limit])
     if intent.fallback_source_types:
         chunks.extend(
             base_qs.filter(metadata__source_type__in=intent.fallback_source_types)
@@ -297,12 +325,13 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
     scored_chunks = _score_chunks(
         chunks=chunks,
         tokens=tokens,
+        query=query,
         intent=intent,
         use_broad_ranking=use_broad_ranking,
     )
-    scored_chunks = _select_diverse_chunks(scored_chunks, top_k=top_k)
+    scored_chunks = _select_diverse_chunks(scored_chunks, top_k=remaining_top_k)
 
-    citations: list[Citation] = []
+    citations: list[Citation] = [*overview_citations]
     for item in scored_chunks:
         c = item.chunk
         doc = c.document
@@ -322,12 +351,13 @@ def retrieve_citations(notebook_id: int, query: str, top_k: int = 5) -> list[Cit
                 metadata=metadata,
             )
         )
-    return citations
+    return citations[:top_k]
 
 
 def _score_chunks(
     chunks: list[DocumentChunk],
     tokens: list[str],
+    query: str,
     intent: QueryIntent,
     use_broad_ranking: bool,
 ) -> list[ScoredChunk]:
@@ -339,16 +369,18 @@ def _score_chunks(
         token_weight = 1 if use_broad_ranking else 4
         token_hits = sum(text.count(t) for t in tokens) if tokens else 0
         token_score = token_hits * token_weight
+        name_score = _document_name_score(query, tokens, chunk.document.name)
+        body_score = _body_text_score(query, source_type)
         source_score = intent.source_boosts.get(source_type, 0)
         broad_score = _broad_context_score(chunk) if use_broad_ranking else 0
-        score = token_score + source_score + broad_score
+        score = token_score + name_score + body_score + source_score + broad_score
         if score <= 0:
             continue
         scored.append(
             ScoredChunk(
                 chunk=chunk,
                 score=score,
-                reason=_retrieval_reason(token_hits, source_score, broad_score),
+                reason=_retrieval_reason(token_hits, name_score, body_score, source_score, broad_score),
                 evidence_key=_evidence_key(chunk),
             )
         )
@@ -382,10 +414,54 @@ def _select_diverse_chunks(scored_chunks: list[ScoredChunk], top_k: int) -> list
     return selected
 
 
-def _retrieval_reason(token_hits: int, source_score: int, broad_score: int) -> str:
+def _document_name_score(query: str, tokens: list[str], document_name: str) -> int:
+    name = document_name.lower()
+    score = 0
+    for token in tokens:
+        if not _is_document_name_token(token):
+            continue
+        if token in name:
+            score += 8
+
+    query_terms = ('大论文', '论文', '报告', '考核说明', '说明')
+    for term in query_terms:
+        if term in query and term in document_name:
+            score += 12
+    return min(score, 36)
+
+
+def _is_document_name_token(token: str) -> bool:
+    if token in QUERY_STOP_TERMS:
+        return False
+    if token in {'大论', '论文', '考核', '说明', '正文'}:
+        return True
+    return len(token) >= 3
+
+
+def _body_text_score(query: str, source_type: str) -> int:
+    if not any(term in query for term in ('正文', '全文', '文档内容', '报告内容')):
+        return 0
+    if source_type in {'mixed', 'paragraph', 'page', 'table'}:
+        return 28
+    if source_type in {'image_ocr', 'image_caption'}:
+        return -28
+    return 0
+
+
+def _retrieval_reason(
+    token_hits: int,
+    name_score: int,
+    body_score: int,
+    source_score: int,
+    broad_score: int,
+) -> str:
     reasons = []
     if token_hits:
         reasons.append('keyword_match')
+    if name_score:
+        reasons.append('document_name')
+    if body_score > 0:
+        reasons.append('body_text')
     if source_score:
         reasons.append('source_intent')
     if broad_score:
@@ -415,7 +491,7 @@ def _evidence_key(chunk: DocumentChunk) -> tuple[Any, ...]:
     if page is not None:
         return (document_id, source_type, page, chunk.position // 3)
 
-    return (document_id, source_type, chunk.position // 3)
+    return (document_id, source_type, chunk.position // 2)
 
 
 def _deduplicate_chunks(chunks: list[DocumentChunk]) -> list[DocumentChunk]:
@@ -434,6 +510,83 @@ def _broad_context_score(chunk: DocumentChunk) -> int:
     return max(0, 8 - min(position, 8))
 
 
+def _document_overview_citations(notebook_id: int, max_docs: int) -> list[Citation]:
+    documents = Document.objects.filter(
+        notebook_id=notebook_id,
+        status=DocumentStatus.COMPLETED,
+    ).order_by('-created_at')[:max_docs]
+
+    citations: list[Citation] = []
+    for document in documents:
+        chunks = list(document.chunks.order_by('position'))
+        if not chunks:
+            continue
+        first_chunk = chunks[0]
+        citations.append(
+            Citation(
+                document_id=document.id,
+                document_name=document.name,
+                chunk_id=first_chunk.id,
+                chunk_text=_document_overview_text(document, chunks),
+                position=first_chunk.position,
+                source_type='document_overview',
+                metadata={
+                    'source_type': 'document_overview',
+                    'retrieval_score': 100,
+                    'retrieval_reason': 'document_parse_overview',
+                },
+            )
+        )
+    return citations
+
+
+def _document_overview_text(document: Document, chunks: list[DocumentChunk]) -> str:
+    source_counts: dict[str, int] = {}
+    pages: set[Any] = set()
+    for chunk in chunks:
+        metadata = chunk.metadata or {}
+        source_type = metadata.get('source_type', 'text')
+        source_counts[source_type] = source_counts.get(source_type, 0) + 1
+        if metadata.get('page') is not None:
+            pages.add(metadata['page'])
+
+    lines = [
+        f'文档解析概况：{document.name}',
+        f'文件类型：{document.file_type.upper()}',
+        f'解析片段数：{len(chunks)}',
+        f'内容类型：{_format_source_counts(source_counts)}',
+    ]
+    if pages:
+        lines.append(f'覆盖页码：{min(pages)}-{max(pages)}，共 {len(pages)} 页')
+
+    sample = _document_overview_sample(chunks)
+    if sample:
+        lines.append(f'正文示例：{sample}')
+    return '\n'.join(lines)
+
+
+def _format_source_counts(source_counts: dict[str, int]) -> str:
+    return '、'.join(
+        f'{_source_label(source_type)} {count} 个'
+        for source_type, count in sorted(source_counts.items())
+    )
+
+
+def _document_overview_sample(chunks: list[DocumentChunk]) -> str:
+    preferred_types = {'mixed', 'paragraph', 'page', 'table'}
+    for chunk in chunks:
+        metadata = chunk.metadata or {}
+        source_type = metadata.get('source_type', 'text')
+        text = ' '.join((chunk.content or '').split())
+        if source_type in preferred_types and chunk.position > 1 and len(text) >= 80:
+            return text[:220]
+    for chunk in chunks:
+        text = ' '.join((chunk.content or '').split())
+        if len(text) >= 40:
+            return text[:220]
+    return ''
+
+
 def build_prompt(
     query: str,
     citations: list[Citation],
@@ -446,7 +599,7 @@ def build_prompt(
     for idx, c in enumerate(citations, start=1):
         source_label = _source_label(c.source_type)
         block = (
-            f"[{idx}] 文档：{c.document_name}（chunk#{c.position}，{source_label}）\n"
+            f"资料来源 {idx}：{c.document_name}（chunk#{c.position}，{source_label}）\n"
             f"{c.chunk_text}"
         ).strip()
         if len(block) > remaining:
@@ -461,7 +614,7 @@ def build_prompt(
     web_results = web_results or []
     for idx, result in enumerate(web_results, start=1):
         block = (
-            f"[W{idx}] 网页：{result.title}\n"
+            f"网页来源 {idx}：{result.title}\n"
             f"链接：{result.url}\n"
             f"{result.content}"
         ).strip()
@@ -479,10 +632,11 @@ def build_prompt(
         "回答规则：\n"
         "- 先直接回答用户的问题，再补充依据和限制；不要一上来要求用户重新提供资料。\n"
         "- 只要资料片段不为空，就表示已经读取到 Notebook 的可解析内容，禁止说“没有读取到上传内容”。\n"
-        "- 对资料型问题，优先基于资料片段回答，并引用片段编号，如 [1][2]。\n"
+        "- 如果资料片段包含“文档概况”，先用它判断文件是否解析完整；不要只凭某个封面片段断定正文不存在。\n"
+        "- 对资料型问题，优先基于资料片段回答，但不要在正文里输出 [1]、[W1]、【W1】 等编号标记；来源会由界面单独展示。\n"
         "- 如果片段只覆盖部分内容，要明确说“基于当前检索到的片段”，并给出可推断结论。\n"
         "- 如果用户问图片、流程图、截图或图表，而资料中没有图片/OCR/视觉描述，只能说明当前只能看到文档文字、表格或图片附近文字，不能看见图片像素本身；然后继续基于已读文字分析。\n"
-        "- 若提供了网页搜索结果，可以结合网页内容回答，并引用网页编号，如 [W1][W2]。\n"
+        "- 若提供了网页搜索结果，可以结合网页内容回答，但不要把网页来源编号写进正文。\n"
         "- 对问候、助手能力、模型身份、产品使用方式等通用问题，可以直接自然回答。\n"
         "- 回答要像可用的产品助手：具体、少兜圈子、少模板话。\n"
     )
@@ -518,6 +672,7 @@ def build_prompt(
 
 def _source_label(source_type: str) -> str:
     labels = {
+        'document_overview': '文档概况',
         'paragraph': '正文段落',
         'heading': '标题',
         'page': '页面文本',
@@ -540,7 +695,7 @@ def _answer_strategy(
     has_web_context = bool(web_results)
     source_types = {citation.source_type for citation in citations}
     strategies = [
-        '先给结论，再用编号引用支撑；不要把资料状态复述成模板话。',
+        '先给结论，再给依据；不要在正文里输出来源编号，也不要把资料状态复述成模板话。',
         '证据不足时明确缺口，但继续给出基于现有证据的可用判断或下一步建议。',
     ]
 
@@ -567,6 +722,15 @@ def _answer_strategy(
     return ' '.join(strategies)
 
 
+def strip_inline_source_markers(text: str, *, strip_partial: bool = False) -> str:
+    text = re.sub(r'(?:\s*(?:\[(?:W|w)?\d+\]|【(?:W|w)?\d+】))+', '', text)
+    if strip_partial:
+        text = re.sub(r'\s*(?:\[(?:W|w)?\d*|【(?:W|w)?\d*)$', '', text)
+    text = re.sub(r'(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])', '', text)
+    text = re.sub(r'\s+([，。；：！？,.!?])', r'\1', text)
+    return text
+
+
 def _has_image_intent(query: str) -> bool:
     lowered = query.lower()
     return any(term in lowered for term in SOURCE_INTENT_TERMS['image'])
@@ -589,36 +753,83 @@ def _source_summary(citations: list[Citation], web_results: list[WebResult]) -> 
 
 
 def call_deepseek_chat(messages: list[dict[str, Any]]) -> str:
+    config = _deepseek_config()
+
+    data = {
+        "model": config["model"],
+        "messages": messages,
+        "temperature": 0.2,
+    }
+
+    resp = _post_with_retries(
+        f"{config['base_url']}/chat/completions",
+        headers=config["headers"],
+        json=data,
+        timeout=config["timeout"],
+        retries=config["retries"],
+        backoff=config["backoff"],
+    )
+    data = resp.json()
+    return data["choices"][0]["message"]["content"]
+
+
+def stream_deepseek_chat(messages: list[dict[str, Any]]):
+    config = _deepseek_config()
+    data = {
+        "model": config["model"],
+        "messages": messages,
+        "temperature": 0.2,
+        "stream": True,
+    }
+    response = _post_stream_with_retries(
+        f"{config['base_url']}/chat/completions",
+        headers=config["headers"],
+        json=data,
+        timeout=config["timeout"],
+        retries=config["retries"],
+        backoff=config["backoff"],
+    )
+    try:
+        for raw_line in response.iter_lines(decode_unicode=True):
+            if not raw_line:
+                continue
+            line = raw_line.strip()
+            if not line.startswith('data:'):
+                continue
+            payload = line.removeprefix('data:').strip()
+            if payload == '[DONE]':
+                break
+            try:
+                event = json.loads(payload)
+            except ValueError:
+                continue
+            choices = event.get('choices') or []
+            if not choices:
+                continue
+            delta = choices[0].get('delta') or {}
+            content = delta.get('content') or ''
+            if content:
+                yield content
+    finally:
+        response.close()
+
+
+def _deepseek_config() -> dict[str, Any]:
     api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
         raise DeepSeekConfigError("DEEPSEEK_API_KEY 未配置")
 
-    base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").rstrip("/")
-    model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
-    retries = int(os.getenv("DEEPSEEK_MAX_RETRIES", "2"))
-    backoff = float(os.getenv("DEEPSEEK_RETRY_BACKOFF_SECONDS", "0.2"))
-    timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "60"))
-
-    data = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.2,
+    return {
+        "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").rstrip("/"),
+        "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+        "retries": int(os.getenv("DEEPSEEK_MAX_RETRIES", "2")),
+        "backoff": float(os.getenv("DEEPSEEK_RETRY_BACKOFF_SECONDS", "0.2")),
+        "timeout": float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "60")),
+        "headers": {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
     }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    resp = _post_with_retries(
-        f"{base_url}/chat/completions",
-        headers=headers,
-        json=data,
-        timeout=timeout,
-        retries=retries,
-        backoff=backoff,
-    )
-    data = resp.json()
-    return data["choices"][0]["message"]["content"]
 
 
 def _post_with_retries(
@@ -657,6 +868,45 @@ def _post_with_retries(
                 time.sleep(backoff * (attempt + 1))
 
     raise DeepSeekError(str(last_error or "DeepSeek request failed"))
+
+
+def _post_stream_with_retries(
+    url: str,
+    headers: dict[str, str],
+    json: dict[str, Any],
+    timeout: float,
+    retries: int,
+    backoff: float,
+) -> requests.Response:
+    last_error: Exception | None = None
+    attempts = max(1, retries + 1)
+
+    for attempt in range(attempts):
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=json,
+                timeout=timeout,
+                stream=True,
+            )
+            _raise_for_deepseek_status(response)
+            return response
+        except (DeepSeekAuthError, DeepSeekRequestError):
+            raise
+        except (
+            request_exceptions.Timeout,
+            request_exceptions.ConnectionError,
+            request_exceptions.ChunkedEncodingError,
+            DeepSeekError,
+        ) as exc:
+            last_error = exc
+            if attempt >= attempts - 1:
+                break
+            if backoff > 0:
+                time.sleep(backoff * (attempt + 1))
+
+    raise DeepSeekError(str(last_error or "DeepSeek stream request failed"))
 
 
 def _raise_for_deepseek_status(response: requests.Response) -> None:

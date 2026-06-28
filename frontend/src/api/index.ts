@@ -64,7 +64,7 @@ async function refreshAccessToken(): Promise<string> {
   return data.access
 }
 
-async function ensureFreshToken(): Promise<void> {
+export async function ensureFreshToken(): Promise<void> {
   const access = localStorage.getItem('access_token')
   if (!access || !isTokenExpiringSoon(access)) return
 

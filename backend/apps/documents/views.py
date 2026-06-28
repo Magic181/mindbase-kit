@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from django.conf import settings
@@ -16,6 +17,7 @@ from .storage import delete_file, save_uploaded_file
 from .tasks import parse_document_task
 
 ALLOWED_EXTENSIONS = {'.txt', '.md', '.markdown', '.pdf', '.docx'}
+logger = logging.getLogger(__name__)
 
 
 def normalize_file_type(filename: str) -> str:
@@ -42,6 +44,16 @@ def validate_uploaded_files(files) -> None:
 def cleanup_saved_files(paths: list[str]) -> None:
     for path in paths:
         delete_file(path)
+
+
+def cleanup_document_files(paths: list[str]) -> None:
+    for path in paths:
+        if not path:
+            continue
+        try:
+            delete_file(path)
+        except OSError:
+            logger.warning("Failed to delete document file %s", path, exc_info=True)
 
 
 def enqueue_parse_task(document_id: int) -> None:
@@ -136,8 +148,13 @@ class DocumentDetailView(APIView):
 
     def delete(self, request, pk: int):
         document = get_user_document(request.user, pk)
-        delete_file(document.file_path)
-        document.delete()
+        file_paths = [
+            document.file_path,
+            *document.assets.exclude(file_path='').values_list('file_path', flat=True),
+        ]
+        with transaction.atomic():
+            document.delete()
+            transaction.on_commit(lambda: cleanup_document_files(file_paths))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -1,31 +1,32 @@
 <template>
   <div class="flex h-full flex-col">
-    <header class="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] px-6">
+    <header class="flex h-16 shrink-0 items-center justify-between px-6">
       <div>
-        <h1 class="text-lg font-semibold text-[var(--text)]">我的笔记本</h1>
-        <p class="text-sm text-[var(--text-secondary)]">管理你的 AI 知识库</p>
+        <h1 class="text-xl font-semibold tracking-tight text-content">我的笔记本</h1>
+        <p class="text-sm text-content-secondary">管理你的 AI 知识库</p>
       </div>
       <button
-        class="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-hover)]"
+        class="gemini-btn gemini-btn-primary"
         @click="showCreate = true"
       >
+        <span class="text-base leading-none">+</span>
         新建笔记本
       </button>
     </header>
 
-    <div class="flex flex-col gap-3 border-b border-[var(--border)] px-6 py-3 sm:flex-row sm:items-center">
+    <div class="flex flex-col gap-3 px-6 pb-3 sm:flex-row sm:items-center">
       <input
         v-model="search"
         type="text"
         placeholder="搜索笔记本..."
-        class="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--primary)]"
+        class="min-w-0 flex-1 rounded-pill border border-line bg-surface-secondary px-5 py-2.5 text-sm text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
       />
       <button
-        class="rounded-lg px-4 py-2 text-sm transition-colors sm:shrink-0"
+        class="gemini-btn sm:shrink-0"
         :class="
           favoriteOnly
-            ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
-            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+            ? 'gemini-btn-tonal'
+            : 'gemini-btn-ghost'
         "
         @click="toggleFavoriteFilter"
       >
@@ -35,21 +36,23 @@
 
     <div class="flex-1 overflow-y-auto p-6">
       <div v-if="notebookStore.loading" class="flex items-center justify-center py-20">
-        <p class="text-[var(--text-secondary)]">加载中...</p>
+        <p class="text-content-secondary">加载中...</p>
       </div>
 
       <div
         v-else-if="notebookStore.notebooks.length === 0"
-        class="flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--border)] py-20 text-center"
+        class="flex flex-col items-center justify-center rounded-glg border border-dashed border-line bg-surface-secondary py-20 text-center"
       >
-        <div class="mb-4 h-10 w-10 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]" />
-        <p class="text-lg font-medium text-[var(--text)]">
+        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-dashed border-line text-content-secondary">
+          <span class="text-xl font-light">+</span>
+        </div>
+        <p class="text-lg font-medium text-content">
           {{ emptyTitle }}
         </p>
-        <p class="mt-2 text-sm text-[var(--text-secondary)]">{{ emptyHint }}</p>
+        <p class="mt-2 text-sm text-content-secondary">{{ emptyHint }}</p>
         <button
           v-if="!favoriteOnly && !search"
-          class="mt-6 rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
+          class="gemini-btn gemini-btn-primary mt-6"
           @click="showCreate = true"
         >
           创建笔记本
@@ -60,14 +63,14 @@
         <div
           v-for="nb in notebookStore.notebooks"
           :key="nb.id"
-          class="group relative rounded-lg border border-[var(--border)] bg-[var(--bg)] p-5 transition-all hover:border-[var(--primary)]/40 hover:shadow-md"
+          class="group relative rounded-glg border border-line bg-surface-elevated p-5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-gmd"
         >
           <button
-            class="absolute right-4 top-4 rounded-full px-2 py-1 text-xs transition-colors"
+            class="gemini-btn gemini-btn-sm absolute right-4 top-4"
             :class="
               nb.is_favorite
-                ? 'bg-yellow-500/10 text-yellow-600'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                ? 'border-amber-400/10 bg-amber-400/15 text-amber-600 hover:bg-amber-400/20'
+                : 'gemini-btn-ghost'
             "
             @click="handleToggleFavorite(nb.id)"
           >
@@ -75,16 +78,19 @@
           </button>
 
           <router-link :to="`/notebook/${nb.id}`" class="block pr-20">
-            <h3 class="font-medium text-[var(--text)] group-hover:text-[var(--primary)]">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-gmd bg-primary-soft text-sm font-semibold text-primary">
+              {{ (nb.name || 'N').charAt(0).toUpperCase() }}
+            </div>
+            <h3 class="font-medium text-content transition-colors group-hover:text-primary">
               {{ nb.name }}
             </h3>
-            <p class="mt-2 line-clamp-2 text-sm text-[var(--text-secondary)]">
+            <p class="mt-2 line-clamp-2 text-sm text-content-secondary">
               {{ nb.description || '暂无描述' }}
             </p>
-            <p class="mt-4 text-xs text-[var(--text-secondary)]">
+            <p class="mt-4 text-xs text-content-secondary">
               更新于 {{ formatDate(nb.updated_at) }}
             </p>
-            <p class="mt-2 text-xs text-[var(--text-secondary)]">
+            <p class="mt-2 text-xs text-content-secondary">
               {{ nb.document_count || 0 }} 个文档
             </p>
           </router-link>
@@ -95,29 +101,29 @@
 
   <div
     v-if="showCreate"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
     @click.self="showCreate = false"
   >
-    <div class="w-full max-w-md rounded-lg bg-[var(--bg)] p-6 shadow-xl">
-      <h2 class="text-lg font-semibold text-[var(--text)]">新建笔记本</h2>
+    <div class="gemini-rise w-full max-w-md rounded-glg border border-line bg-surface-elevated p-6 shadow-glg">
+      <h2 class="text-lg font-semibold text-content">新建笔记本</h2>
       <form class="mt-4 space-y-4" @submit.prevent="handleCreate">
         <input
           v-model="form.name"
           type="text"
           placeholder="笔记本名称"
           required
-          class="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+          class="w-full rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
         />
         <textarea
           v-model="form.description"
           placeholder="描述（可选）"
           rows="3"
-          class="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[var(--text)] outline-none focus:border-[var(--primary)]"
+          class="w-full resize-none rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
         />
         <div class="flex justify-end gap-3">
           <button
             type="button"
-            class="rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+            class="gemini-btn gemini-btn-ghost"
             @click="showCreate = false"
           >
             取消
@@ -125,7 +131,7 @@
           <button
             type="submit"
             :disabled="creating"
-            class="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
+            class="gemini-btn gemini-btn-primary"
           >
             {{ creating ? '创建中...' : '创建' }}
           </button>

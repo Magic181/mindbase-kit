@@ -127,7 +127,7 @@ Prompt 会根据证据情况调整回答策略：
     "asset_id": 4,
     "asset_name": "diagram.png",
     "vision_provider": "zhipu",
-    "vision_model": "glm-4.6v-flash",
+    "vision_model": "glm-4.6v-flashx",
     "retrieval_score": 38,
     "retrieval_reason": "匹配图片意图，命中流程图关键词"
   }

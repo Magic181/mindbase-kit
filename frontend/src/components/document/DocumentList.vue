@@ -1,9 +1,9 @@
 <template>
-  <div v-if="loading" class="py-10 text-center text-sm text-[var(--text-secondary)]">
+  <div v-if="loading" class="py-10 text-center text-sm text-content-secondary">
     加载文档中...
   </div>
 
-  <div v-else-if="documents.length === 0" class="py-6 text-center text-sm text-[var(--text-secondary)]">
+  <div v-else-if="documents.length === 0" class="py-6 text-center text-sm text-content-secondary">
     暂无文档，上传第一个文件开始构建知识库
   </div>
 
@@ -11,16 +11,16 @@
     <div
       v-for="doc in documents"
       :key="doc.id"
-      class="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-3 sm:flex-row sm:items-center"
+      class="flex flex-col gap-3 rounded-glg border border-line bg-surface-elevated px-4 py-3 shadow-gsm sm:flex-row sm:items-center"
     >
       <div class="flex min-w-0 flex-1 items-start gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-secondary)] text-xs font-semibold uppercase text-[var(--text-secondary)]">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-gmd bg-primary-soft text-xs font-bold uppercase text-primary">
           {{ fileBadge(doc.file_type) }}
         </div>
 
         <div class="min-w-0 flex-1">
-          <p class="break-words font-medium text-[var(--text)]">{{ doc.name }}</p>
-          <p class="mt-1 text-xs text-[var(--text-secondary)]">
+          <p class="break-words font-medium text-content">{{ doc.name }}</p>
+          <p class="mt-1 text-xs text-content-secondary">
             {{ formatSize(doc.file_size) }}
             <span v-if="doc.chunk_count > 0"> · {{ doc.chunk_count }} 个片段</span>
             <span v-if="doc.asset_count > 0"> · {{ doc.asset_count }} 张图片</span>
@@ -29,7 +29,7 @@
             <span
               v-for="badge in processingBadges(doc)"
               :key="badge.label"
-              class="rounded border px-1.5 py-0.5 text-[11px]"
+              class="rounded-pill border px-2 py-0.5 text-[11px]"
               :class="badge.className"
             >
               {{ badge.label }}
@@ -49,7 +49,7 @@
 
       <div class="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
         <span
-          class="rounded-full px-3 py-1 text-xs font-medium"
+          class="rounded-pill px-3 py-1 text-xs font-medium"
           :class="statusClass(doc.status)"
         >
           {{ statusLabel(doc.status) }}
@@ -57,14 +57,14 @@
 
         <button
           :disabled="isReparseDisabled(doc)"
-          class="rounded-lg px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+          class="gemini-btn gemini-btn-ghost gemini-btn-sm"
           @click="$emit('reparse', doc)"
         >
           {{ isReparsing(doc.id) ? '入队中...' : '重新解析' }}
         </button>
 
         <button
-          class="rounded-lg px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+          class="gemini-btn gemini-btn-danger gemini-btn-sm"
           @click="$emit('delete', doc)"
         >
           删除
