@@ -20,6 +20,9 @@ class NotebookSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'is_favorite', 'document_count', 'created_at', 'updated_at')
 
     def get_document_count(self, obj):
+        annotated = getattr(obj, 'document_count', None)
+        if annotated is not None:
+            return annotated
         return obj.documents.count()
 
 

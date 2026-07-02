@@ -22,6 +22,16 @@ export default {
           secondary: 'var(--text-secondary)',
         },
         line: 'var(--border)',
+        'ai-accent': {
+          DEFAULT: 'var(--ai-accent)',
+          soft: 'var(--ai-accent-soft)',
+        },
+        status: {
+          high: 'var(--status-high)',
+          medium: 'var(--status-medium)',
+          'medium-soft': 'var(--status-medium-soft)',
+          low: 'var(--status-low)',
+        },
       },
       borderColor: {
         DEFAULT: 'var(--border)',
@@ -31,11 +41,16 @@ export default {
         gmd: 'var(--radius-md)',
         glg: 'var(--radius-lg)',
         pill: 'var(--radius-pill)',
+        card: 'var(--radius-card)',
+        control: 'var(--radius-control)',
       },
       boxShadow: {
         gsm: 'var(--shadow-sm)',
         gmd: 'var(--shadow-md)',
         glg: 'var(--shadow-lg)',
+        'card-default': 'var(--shadow-default)',
+        'card-hover': 'var(--shadow-hover)',
+        'card-active': 'var(--shadow-active)',
       },
       backgroundImage: {
         'gemini-accent': 'var(--accent-gradient)',

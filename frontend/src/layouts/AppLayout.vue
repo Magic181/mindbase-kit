@@ -1,8 +1,17 @@
 <template>
   <div class="flex h-screen gap-2 bg-surface p-2">
+    <div
+      v-if="uiStore.mobileSidebarOpen"
+      class="fixed inset-0 z-30 bg-black/40 md:hidden"
+      @click="uiStore.closeMobileSidebar()"
+    />
+
     <aside
-      class="flex flex-col rounded-2xl bg-surface-elevated shadow-gsm transition-all duration-300"
-      :class="uiStore.sidebarCollapsed ? 'w-[76px]' : 'w-64'"
+      class="fixed inset-y-2 left-2 z-40 w-64 flex flex-col rounded-2xl bg-surface-elevated shadow-gsm transition-transform duration-300 md:static md:inset-auto md:translate-x-0 md:transition-all"
+      :class="[
+        uiStore.mobileSidebarOpen ? 'translate-x-0' : '-translate-x-[calc(100%+0.5rem)]',
+        uiStore.sidebarCollapsed ? 'md:w-[76px]' : 'md:w-64',
+      ]"
     >
       <div
         class="flex h-16 items-center gap-2 px-4"
@@ -95,13 +104,20 @@
     <main class="relative flex flex-1 flex-col overflow-hidden rounded-2xl bg-surface-elevated shadow-gsm">
       <!-- 右上角若隐若现的绿色微光 -->
       <div class="pointer-events-none absolute right-0 top-0 h-80 w-80 -translate-y-1/3 translate-x-1/3 rounded-full bg-primary opacity-[0.07] blur-3xl" />
+      <button
+        class="gemini-icon-btn absolute left-3 top-3 z-10 h-9 w-9 md:hidden"
+        title="打开菜单"
+        @click="uiStore.toggleMobileSidebar()"
+      >
+        ☰
+      </button>
       <router-view />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import { useNotebookStore } from '@/stores/notebook'
@@ -116,6 +132,10 @@ const userStore = useUserStore()
 function isActive(path: string) {
   return route.path === path
 }
+
+watch(() => route.fullPath, () => {
+  uiStore.closeMobileSidebar()
+})
 
 async function handleLogout() {
   await userStore.logout()

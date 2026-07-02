@@ -119,6 +119,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 MAX_UPLOAD_SIZE_MB = int(os.getenv('MAX_UPLOAD_SIZE_MB', '20'))
+MAX_UPLOAD_FILES_PER_REQUEST = int(os.getenv('MAX_UPLOAD_FILES_PER_REQUEST', '10'))
+
+# Safety cap for unpaginated list endpoints (documents/conversations/messages),
+# to bound response size and query cost without changing the response shape.
+MAX_LIST_RESULTS = int(os.getenv('MAX_LIST_RESULTS', '200'))
 
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
@@ -145,6 +150,10 @@ REST_FRAMEWORK = {
         'apps.core.renderers.ApiRenderer',
     ],
     'EXCEPTION_HANDLER': 'apps.core.exceptions.api_exception_handler',
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': os.getenv('THROTTLE_RATE_AUTH', '10/min'),
+        'chat-send': os.getenv('THROTTLE_RATE_CHAT_SEND', '20/min'),
+    },
 }
 
 SIMPLE_JWT = {

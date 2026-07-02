@@ -695,6 +695,25 @@ class ParseDocumentTaskTests(TransactionTestCase):
             file_path='files/with-image.md',
             file_type='md',
             status=DocumentStatus.COMPLETED,
+            chunk_count=3,
+        )
+        DocumentChunk.objects.create(
+            document=document,
+            content='第一页正文',
+            position=0,
+            metadata={'source_type': 'paragraph', 'page': 1, 'parser_version': 1},
+        )
+        DocumentChunk.objects.create(
+            document=document,
+            content='模块 | 状态',
+            position=1,
+            metadata={'source_type': 'table', 'page': 2, 'parser_version': 1},
+        )
+        DocumentChunk.objects.create(
+            document=document,
+            content='视觉描述：系统流程图',
+            position=2,
+            metadata={'source_type': 'image_caption', 'page': 2},
         )
         DocumentAsset.objects.create(
             document=document,
@@ -736,6 +755,15 @@ class ParseDocumentTaskTests(TransactionTestCase):
         data = DocumentSerializer(document).data
 
         self.assertEqual(data['asset_count'], 4)
+        self.assertEqual(data['parse_overview']['chunk_count'], 3)
+        self.assertEqual(data['parse_overview']['asset_count'], 4)
+        self.assertEqual(data['parse_overview']['source_counts']['paragraph'], 1)
+        self.assertEqual(data['parse_overview']['source_counts']['table'], 1)
+        self.assertEqual(data['parse_overview']['source_counts']['image_caption'], 1)
+        self.assertEqual(data['parse_overview']['page_start'], 1)
+        self.assertEqual(data['parse_overview']['page_end'], 2)
+        self.assertEqual(data['parse_overview']['page_count'], 2)
+        self.assertEqual(data['parse_overview']['parser_versions'], [1])
         self.assertEqual(data['ocr_count'], 1)
         self.assertEqual(data['ocr_failed_count'], 1)
         self.assertEqual(data['ocr_skipped_count'], 1)

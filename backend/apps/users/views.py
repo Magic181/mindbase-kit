@@ -6,11 +6,14 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from apps.core.throttling import AuthRateThrottle
+
 from .serializers import RegisterSerializer, UserSerializer
 
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -28,10 +31,12 @@ class RegisterView(APIView):
 
 class LoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
 
 class RefreshView(TokenRefreshView):
     permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
 
 class LogoutView(APIView):

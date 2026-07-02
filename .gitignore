@@ -52,6 +52,7 @@ htmlcov/
 backend/test_uploads/
 backend/test_*.py
 !backend/apps/**/tests.py
+pw-audit-shots/
 
 # Database / local data
 *.db

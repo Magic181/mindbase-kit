@@ -11,7 +11,7 @@
     <div
       v-for="doc in documents"
       :key="doc.id"
-      class="flex flex-col gap-3 rounded-glg border border-line bg-surface-elevated px-4 py-3 shadow-gsm sm:flex-row sm:items-center"
+      class="flex flex-col gap-3 rounded-card border border-line bg-surface-elevated p-4 shadow-card-default transition-shadow hover:shadow-card-hover sm:flex-row sm:items-center"
     >
       <div class="flex min-w-0 flex-1 items-start gap-3">
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-gmd bg-primary-soft text-xs font-bold uppercase text-primary">
@@ -22,27 +22,9 @@
           <p class="break-words font-medium text-content">{{ doc.name }}</p>
           <p class="mt-1 text-xs text-content-secondary">
             {{ formatSize(doc.file_size) }}
-            <span v-if="doc.chunk_count > 0"> · {{ doc.chunk_count }} 个片段</span>
-            <span v-if="doc.asset_count > 0"> · {{ doc.asset_count }} 张图片</span>
           </p>
-          <div v-if="processingBadges(doc).length" class="mt-2 flex flex-wrap gap-1.5">
-            <span
-              v-for="badge in processingBadges(doc)"
-              :key="badge.label"
-              class="rounded-pill border px-2 py-0.5 text-[11px]"
-              :class="badge.className"
-            >
-              {{ badge.label }}
-            </span>
-          </div>
-          <p
-            v-if="processingIssueText(doc)"
-            class="mt-1 break-words text-xs text-amber-600"
-          >
-            {{ processingIssueText(doc) }}
-          </p>
-          <p v-if="doc.status === 'failed' && doc.error_message" class="mt-1 break-words text-xs text-red-500">
-            {{ doc.error_message }}
+          <p v-if="doc.status === 'failed'" class="mt-1 break-words text-xs text-red-500">
+            解析失败，可重新解析。
           </p>
         </div>
       </div>
@@ -122,48 +104,6 @@ function statusClass(status: DocumentStatus) {
     failed: 'bg-red-500/10 text-red-500',
   }
   return classes[status]
-}
-
-function processingBadges(document: Document) {
-  const badges: Array<{ label: string; className: string }> = []
-  addCountBadge(badges, document.ocr_count, 'OCR 成功', 'success')
-  addCountBadge(badges, document.ocr_pending_count, 'OCR 待处理', 'pending')
-  addCountBadge(badges, document.ocr_skipped_count, 'OCR 跳过', 'muted')
-  addCountBadge(badges, document.ocr_failed_count, 'OCR 失败', 'danger')
-  addCountBadge(badges, document.vision_count, '视觉成功', 'success')
-  addCountBadge(badges, document.vision_pending_count, '视觉待处理', 'pending')
-  addCountBadge(badges, document.vision_skipped_count, '视觉跳过', 'muted')
-  addCountBadge(badges, document.vision_failed_count, '视觉失败', 'danger')
-  return badges
-}
-
-function addCountBadge(
-  badges: Array<{ label: string; className: string }>,
-  count: number | undefined,
-  label: string,
-  tone: 'success' | 'pending' | 'muted' | 'danger',
-) {
-  if (!count) return
-  badges.push({
-    label: `${label} ${count}`,
-    className: processingBadgeClass(tone),
-  })
-}
-
-function processingBadgeClass(tone: 'success' | 'pending' | 'muted' | 'danger') {
-  const classes = {
-    success: 'border-green-500/20 bg-green-500/10 text-green-600',
-    pending: 'border-amber-500/20 bg-amber-500/10 text-amber-600',
-    muted: 'border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]',
-    danger: 'border-red-500/20 bg-red-500/10 text-red-500',
-  }
-  return classes[tone]
-}
-
-function processingIssueText(document: Document) {
-  if (document.vision_error_message) return `视觉：${document.vision_error_message}`
-  if (document.ocr_error_message) return `OCR：${document.ocr_error_message}`
-  return ''
 }
 
 function isActiveStatus(status: DocumentStatus) {

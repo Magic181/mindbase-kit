@@ -28,6 +28,12 @@ def normalize_file_type(filename: str) -> str:
 
 
 def validate_uploaded_files(files) -> None:
+    max_files = settings.MAX_UPLOAD_FILES_PER_REQUEST
+    if len(files) > max_files:
+        raise ValidationError({
+            'files': f'单次最多上传 {max_files} 个文件',
+        })
+
     max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     for uploaded in files:
         ext = Path(uploaded.name).suffix.lower()
@@ -89,7 +95,7 @@ class NotebookDocumentListCreateView(APIView):
 
     def get(self, request, notebook_pk: int):
         notebook = get_user_notebook(request.user, notebook_pk)
-        documents = notebook.documents.all()
+        documents = notebook.documents.prefetch_related('assets', 'chunks').all()[:settings.MAX_LIST_RESULTS]
         return Response(DocumentSerializer(documents, many=True).data)
 
     def post(self, request, notebook_pk: int):

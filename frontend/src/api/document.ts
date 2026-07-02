@@ -11,6 +11,7 @@ export interface Document {
   status: DocumentStatus
   chunk_count: number
   asset_count: number
+  parse_overview?: DocumentParseOverview
   ocr_count: number
   ocr_pending_count: number
   ocr_failed_count: number
@@ -24,6 +25,16 @@ export interface Document {
   error_message?: string
   created_at: string
   updated_at: string
+}
+
+export interface DocumentParseOverview {
+  chunk_count: number
+  asset_count: number
+  source_counts: Record<string, number>
+  page_start: number | null
+  page_end: number | null
+  page_count: number
+  parser_versions: number[]
 }
 
 export const documentApi = {

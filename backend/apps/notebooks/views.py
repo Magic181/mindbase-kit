@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Count
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -18,7 +19,9 @@ class NotebookViewSet(viewsets.ModelViewSet):
     pagination_class = NotebookPagination
 
     def get_queryset(self):
-        queryset = Notebook.objects.filter(user=self.request.user)
+        queryset = Notebook.objects.filter(user=self.request.user).annotate(
+            document_count=Count('documents', distinct=True),
+        )
 
         search = self.request.query_params.get('search', '').strip()
         if search:
@@ -32,8 +35,11 @@ class NotebookViewSet(viewsets.ModelViewSet):
 
         ordering = self.request.query_params.get('ordering', '-updated_at')
         allowed = {'created_at', '-created_at', 'updated_at', '-updated_at', 'name', '-name'}
-        if ordering in allowed:
-            queryset = queryset.order_by(ordering)
+        # annotate() drops the model's implicit default ordering, so an explicit
+        # order_by is required even when falling back to the default.
+        if ordering not in allowed:
+            ordering = '-updated_at'
+        queryset = queryset.order_by(ordering)
 
         return queryset
 

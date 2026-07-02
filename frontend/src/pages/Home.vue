@@ -40,6 +40,20 @@
       </div>
 
       <div
+        v-else-if="loadError"
+        class="flex flex-col items-center justify-center rounded-glg border border-dashed border-line bg-surface-secondary py-20 text-center"
+      >
+        <p class="text-lg font-medium text-content">加载笔记本失败</p>
+        <p class="mt-2 text-sm text-content-secondary">请检查网络连接后重试</p>
+        <button
+          class="gemini-btn gemini-btn-primary mt-6"
+          @click="loadNotebooks"
+        >
+          重试
+        </button>
+      </div>
+
+      <div
         v-else-if="notebookStore.notebooks.length === 0"
         class="flex flex-col items-center justify-center rounded-glg border border-dashed border-line bg-surface-secondary py-20 text-center"
       >
@@ -63,7 +77,7 @@
         <div
           v-for="nb in notebookStore.notebooks"
           :key="nb.id"
-          class="group relative rounded-glg border border-line bg-surface-elevated p-5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-gmd"
+          class="group relative rounded-card border border-line bg-surface-elevated p-4 shadow-card-default transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-card-hover"
         >
           <button
             class="gemini-btn gemini-btn-sm absolute right-4 top-4"
@@ -99,52 +113,46 @@
     </div>
   </div>
 
-  <div
-    v-if="showCreate"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-    @click.self="showCreate = false"
-  >
-    <div class="gemini-rise w-full max-w-md rounded-glg border border-line bg-surface-elevated p-6 shadow-glg">
-      <h2 class="text-lg font-semibold text-content">新建笔记本</h2>
-      <form class="mt-4 space-y-4" @submit.prevent="handleCreate">
-        <input
-          v-model="form.name"
-          type="text"
-          placeholder="笔记本名称"
-          required
-          class="w-full rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
-        />
-        <textarea
-          v-model="form.description"
-          placeholder="描述（可选）"
-          rows="3"
-          class="w-full resize-none rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
-        />
-        <div class="flex justify-end gap-3">
-          <button
-            type="button"
-            class="gemini-btn gemini-btn-ghost"
-            @click="showCreate = false"
-          >
-            取消
-          </button>
-          <button
-            type="submit"
-            :disabled="creating"
-            class="gemini-btn gemini-btn-primary"
-          >
-            {{ creating ? '创建中...' : '创建' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <BaseModal v-model="showCreate" title="新建笔记本">
+    <form class="mt-4 space-y-4" @submit.prevent="handleCreate">
+      <BaseInput
+        v-model="form.name"
+        type="text"
+        placeholder="笔记本名称"
+        required
+      />
+      <textarea
+        v-model="form.description"
+        placeholder="描述（可选）"
+        rows="3"
+        class="w-full resize-none rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
+      />
+      <div class="flex justify-end gap-3">
+        <BaseButton
+          type="button"
+          variant="ghost"
+          @click="showCreate = false"
+        >
+          取消
+        </BaseButton>
+        <BaseButton
+          type="submit"
+          :disabled="creating"
+        >
+          {{ creating ? '创建中...' : '创建' }}
+        </BaseButton>
+      </div>
+    </form>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 import { useNotebookStore } from '@/stores/notebook'
 
 const router = useRouter()
@@ -155,6 +163,7 @@ const creating = ref(false)
 const search = ref('')
 const favoriteOnly = ref(false)
 const form = ref({ name: '', description: '' })
+const loadError = ref(false)
 
 const emptyTitle = computed(() => {
   if (favoriteOnly.value) return '暂无收藏的笔记本'
@@ -171,11 +180,16 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
-function loadNotebooks() {
-  notebookStore.fetchNotebooks({
-    search: search.value.trim() || undefined,
-    is_favorite: favoriteOnly.value || undefined,
-  }).catch(() => {})
+async function loadNotebooks() {
+  loadError.value = false
+  try {
+    await notebookStore.fetchNotebooks({
+      search: search.value.trim() || undefined,
+      is_favorite: favoriteOnly.value || undefined,
+    })
+  } catch {
+    loadError.value = true
+  }
 }
 
 function toggleFavoriteFilter() {

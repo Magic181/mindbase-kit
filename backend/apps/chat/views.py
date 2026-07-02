@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.conf import settings
 from django.db import transaction
 from django.http import StreamingHttpResponse
 from rest_framework import status
@@ -9,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.throttling import ChatSendRateThrottle
 from apps.notebooks.models import Notebook
 
 from .models import Conversation, Message, MessageRole
@@ -51,7 +53,7 @@ class NotebookConversationListCreateView(APIView):
 
     def get(self, request, notebook_pk: int):
         notebook = get_user_notebook(request.user, notebook_pk)
-        conversations = notebook.conversations.all()
+        conversations = notebook.conversations.all()[:settings.MAX_LIST_RESULTS]
         return Response(ConversationSerializer(conversations, many=True).data)
 
     def post(self, request, notebook_pk: int):
@@ -68,7 +70,10 @@ class ConversationMessageListView(APIView):
 
     def get(self, request, conversation_pk: int):
         conv = get_user_conversation(request.user, conversation_pk)
-        messages = conv.messages.all()
+        # Messages default-order oldest-first; cap by keeping the most recent
+        # MAX_LIST_RESULTS, then restore chronological order for the response.
+        messages = list(conv.messages.order_by('-created_at')[:settings.MAX_LIST_RESULTS])
+        messages.reverse()
         return Response(MessageSerializer(messages, many=True).data)
 
 
@@ -90,6 +95,7 @@ class ConversationDetailView(APIView):
 
 class ConversationSendMessageView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ChatSendRateThrottle]
 
     def post(self, request, conversation_pk: int):
         conv = get_user_conversation(request.user, conversation_pk)
@@ -139,6 +145,7 @@ class ConversationSendMessageView(APIView):
 
 class ConversationSendMessageStreamView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ChatSendRateThrottle]
 
     def post(self, request, conversation_pk: int):
         conv = get_user_conversation(request.user, conversation_pk)

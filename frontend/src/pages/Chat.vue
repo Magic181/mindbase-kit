@@ -17,6 +17,21 @@
       </div>
       <div class="max-h-[calc(100vh-130px)] overflow-y-auto px-2 pb-2">
         <div
+          v-if="initLoading"
+          class="flex items-center justify-center py-6 text-sm text-content-secondary"
+        >
+          加载中...
+        </div>
+        <div
+          v-if="initError"
+          class="flex flex-col items-center gap-2 rounded-glg border border-dashed border-line px-3 py-6 text-center"
+        >
+          <p class="text-sm text-content-secondary">加载会话失败</p>
+          <button class="gemini-btn gemini-btn-ghost gemini-btn-sm" @click="initChat">
+            重试
+          </button>
+        </div>
+        <div
           v-for="c in conversations"
           :key="c.id"
           class="group mb-1 flex min-h-[44px] items-center gap-1 rounded-pill px-1 transition-colors"
@@ -98,10 +113,10 @@
         </div>
       </header>
 
-      <div class="relative min-h-0 flex-1">
+      <div class="flex min-h-0 flex-1">
         <div
           ref="messagesViewport"
-          class="h-full space-y-4 overflow-y-auto p-6"
+          class="h-full min-w-0 flex-1 space-y-4 overflow-y-auto p-6"
           @scroll="handleMessagesScroll"
         >
           <div
@@ -160,6 +175,9 @@
                 >
                   <div
                     class="markdown-body"
+                    @click="handleActionItemClick"
+                    @keydown.enter="handleActionItemClick"
+                    @keydown.space.prevent="handleActionItemClick"
                     v-html="renderMarkdown(msg.content)"
                   />
                 </div>
@@ -187,24 +205,12 @@
           </div>
         </div>
 
-        <nav
-          v-if="messageJumpItems.length > 1"
-          class="conversation-jump-nav hidden xl:block"
-          aria-label="会话位置导航"
-        >
-          <button
-            v-for="item in messageJumpItems"
-            :key="item.id"
-            type="button"
-            class="conversation-jump-item"
-            :class="{ 'conversation-jump-item-active': item.id === activeJumpMessageId }"
-            :title="item.title"
-            @click="scrollToMessage(item.id)"
-          >
-            <span class="conversation-jump-title">{{ item.title }}</span>
-            <span class="conversation-jump-marker" />
-          </button>
-        </nav>
+        <ConversationJumpNav
+          class="hidden shrink-0 pr-1 xl:block"
+          :items="messageJumpItems"
+          :active-id="activeJumpMessageId"
+          @jump="scrollToMessage"
+        />
       </div>
 
       <div class="shrink-0 px-4 pb-5 pt-2">
@@ -250,33 +256,28 @@
     </div>
   </div>
 
-  <div
-    v-if="conversationToDelete"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-    @click.self="conversationToDelete = null"
+  <BaseModal
+    :model-value="!!conversationToDelete"
+    title="确认删除会话"
+    max-width="sm"
+    @update:model-value="(open) => { if (!open) conversationToDelete = null }"
   >
-    <div class="gemini-rise w-full max-w-sm rounded-glg border border-line bg-surface-elevated p-6 shadow-glg">
-      <h2 class="text-lg font-semibold text-content">确认删除会话</h2>
-      <p class="mt-2 break-words text-sm text-content-secondary">
-        确定要删除「{{ conversationToDelete.title || '未命名会话' }}」吗？此操作会删除该会话下的所有消息。
-      </p>
-      <div class="mt-6 flex justify-end gap-3">
-        <button
-          class="gemini-btn gemini-btn-ghost"
-          @click="conversationToDelete = null"
-        >
-          取消
-        </button>
-        <button
-          :disabled="deletingConversation"
-          class="gemini-btn gemini-btn-danger"
-          @click="deleteConversation"
-        >
-          {{ deletingConversation ? '删除中...' : '删除' }}
-        </button>
-      </div>
-    </div>
-  </div>
+    <p class="mt-2 break-words text-sm text-content-secondary">
+      确定要删除「{{ conversationToDelete?.title || '未命名会话' }}」吗？此操作会删除该会话下的所有消息。
+    </p>
+    <template #footer>
+      <BaseButton variant="ghost" @click="conversationToDelete = null">
+        取消
+      </BaseButton>
+      <BaseButton
+        variant="danger"
+        :disabled="deletingConversation"
+        @click="deleteConversation"
+      >
+        {{ deletingConversation ? '删除中...' : '删除' }}
+      </BaseButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -284,6 +285,9 @@ import { computed, nextTick, onBeforeUpdate, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { chatApi, type Conversation, type Message, type SearchMode } from '@/api/chat'
 import CitationList from '@/components/chat/CitationList.vue'
+import ConversationJumpNav from '@/components/chat/ConversationJumpNav.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 import { useNotebookStore } from '@/stores/notebook'
 
 const route = useRoute()
@@ -305,6 +309,8 @@ const creatingConversation = ref(false)
 const deletingConversation = ref(false)
 const renamingConversation = ref(false)
 const sending = ref(false)
+const initLoading = ref(false)
+const initError = ref(false)
 const streamingAssistantId = ref<number | null>(null)
 const activeJumpMessageId = ref<number | null>(null)
 const messageElements = new Map<number, HTMLElement>()
@@ -419,6 +425,15 @@ function renderMarkdown(content: string) {
   return markdownToHtml(content)
 }
 
+function handleActionItemClick(event: Event) {
+  const target = event.target as HTMLElement | null
+  const item = target?.closest<HTMLElement>('.ai-action-item')
+  if (!item) return
+  const action = item.dataset.action
+  if (!action) return
+  input.value = action
+}
+
 function markdownToHtml(source: string) {
   const lines = source.replace(/\r\n/g, '\n').split('\n')
   const html: string[] = []
@@ -433,6 +448,8 @@ function markdownToHtml(source: string) {
     paragraph = []
   }
 
+  let orderedItemIndex = 0
+
   const closeList = () => {
     if (!listType) return
     html.push(`</${listType}>`)
@@ -442,7 +459,12 @@ function markdownToHtml(source: string) {
   const openList = (type: 'ol' | 'ul') => {
     if (listType === type) return
     closeList()
-    html.push(`<${type}>`)
+    if (type === 'ol') {
+      orderedItemIndex = 0
+      html.push('<ol class="ai-action-list">')
+    } else {
+      html.push('<ul>')
+    }
     listType = type
   }
 
@@ -497,6 +519,20 @@ function markdownToHtml(source: string) {
       continue
     }
 
+    if (isOutlineLine(trimmed)) {
+      closeParagraph()
+      closeList()
+      const { html: outlineHtml, nextIndex, count } = parseOutlineItems(lines, index, countLeadingIndent(line))
+      html.push(
+        '<details class="ai-outline-block" open>'
+          + `<summary class="ai-outline-summary">知识点大纲 · ${count} 项</summary>`
+          + outlineHtml
+          + '</details>',
+      )
+      index = nextIndex
+      continue
+    }
+
     const heading = trimmed.match(/^(#{1,4})\s+(.+)$/)
     if (heading) {
       closeParagraph()
@@ -520,7 +556,14 @@ function markdownToHtml(source: string) {
     if (ordered) {
       closeParagraph()
       openList('ol')
-      html.push(`<li>${inlineMarkdown(ordered[1])}</li>`)
+      orderedItemIndex += 1
+      const actionText = ordered[1].trim()
+      html.push(
+        `<li class="ai-action-item" role="button" tabindex="0" data-action="${escapeHtml(actionText)}">`
+          + `<span class="ai-action-index">${orderedItemIndex}</span>`
+          + `<span class="ai-action-text">${inlineMarkdown(actionText)}</span>`
+          + '</li>',
+      )
       index += 1
       continue
     }
@@ -545,6 +588,63 @@ function markdownToHtml(source: string) {
   }
 
   return html.join('')
+}
+
+const CIRCLED_NUMBER_PATTERN = /^[①-⑳]/
+
+function isOutlineLine(trimmed: string) {
+  return CIRCLED_NUMBER_PATTERN.test(trimmed)
+}
+
+function countLeadingIndent(line: string) {
+  const match = line.match(/^[ \t]*/)
+  if (!match) return 0
+  return match[0].replace(/\t/g, '  ').length
+}
+
+function stripOutlineMarker(trimmed: string) {
+  return trimmed.replace(CIRCLED_NUMBER_PATTERN, '').replace(/^\s*[-*]\s+/, '').trim()
+}
+
+function parseOutlineItems(lines: string[], startIndex: number, baseIndent: number) {
+  const items: string[] = []
+  let index = startIndex
+  let count = 0
+
+  while (index < lines.length) {
+    const line = lines[index]
+    const trimmed = line.trim()
+    if (!trimmed || countLeadingIndent(line) > baseIndent || !isOutlineLine(trimmed)) break
+
+    const text = stripOutlineMarker(trimmed)
+    count += 1
+    index += 1
+
+    const nestedItems: string[] = []
+    while (index < lines.length) {
+      const nestedLine = lines[index]
+      const nestedTrimmed = nestedLine.trim()
+      if (!nestedTrimmed || countLeadingIndent(nestedLine) <= baseIndent) break
+      nestedItems.push(`<li>${inlineMarkdown(stripOutlineMarker(nestedTrimmed))}</li>`)
+      index += 1
+    }
+
+    const nestedHtml = nestedItems.length
+      ? `<ul class="ai-outline-sublist">${nestedItems.join('')}</ul>`
+      : ''
+    items.push(
+      `<li class="ai-outline-item">`
+        + `<span class="ai-outline-text">${inlineMarkdown(text)}</span>`
+        + nestedHtml
+        + '</li>',
+    )
+  }
+
+  return {
+    html: `<ol class="ai-outline-list">${items.join('')}</ol>`,
+    nextIndex: index,
+    count,
+  }
 }
 
 function isMarkdownTableStart(lines: string[], index: number) {
@@ -857,25 +957,36 @@ watch(
   { flush: 'post' },
 )
 
-onMounted(async () => {
-  if (!notebookStore.notebooks.length) {
-    await notebookStore.fetchNotebooks().catch(() => {})
+async function initChat() {
+  initLoading.value = true
+  initError.value = false
+  try {
+    if (!notebookStore.notebooks.length) {
+      await notebookStore.fetchNotebooks().catch(() => {})
+    }
+    if (!notebookStore.notebooks.some((item) => item.id === notebookId.value)) {
+      await notebookStore.fetchNotebook(notebookId.value).catch(() => {})
+    }
+    await loadConversations()
+    if (!activeConversationId.value) {
+      await createConversation()
+    } else {
+      await loadMessages()
+    }
+  } catch {
+    initError.value = true
+  } finally {
+    initLoading.value = false
   }
-  if (!notebookStore.notebooks.some((item) => item.id === notebookId.value)) {
-    await notebookStore.fetchNotebook(notebookId.value).catch(() => {})
-  }
-  await loadConversations()
-  if (!activeConversationId.value) {
-    await createConversation()
-  } else {
-    await loadMessages()
-  }
-})
+}
+
+onMounted(initChat)
 </script>
 
 <style scoped>
 .assistant-message {
   overflow-wrap: anywhere;
+  border-left: 2px solid var(--ai-accent-soft);
   box-shadow:
     inset 0 0 0 1px rgba(226, 237, 231, 0.54),
     0 12px 30px -26px rgba(16, 185, 129, 0.35);
@@ -889,9 +1000,9 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  color: #047857;
-  background: #e6f4ea;
-  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.14);
+  color: var(--ai-accent);
+  background: var(--ai-accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(124, 111, 240, 0.16);
 }
 
 .chat-composer {
@@ -972,106 +1083,6 @@ onMounted(async () => {
   background: #e8f7f0;
 }
 
-.conversation-jump-nav {
-  position: absolute;
-  top: 50%;
-  right: 0.45rem;
-  z-index: 20;
-  display: flex;
-  width: 2rem;
-  max-height: min(70%, 34rem);
-  transform: translateY(-50%);
-  flex-direction: column;
-  align-items: flex-end;
-  overflow-y: auto;
-  border-radius: 1.25rem;
-  padding: 0.45rem 0.35rem;
-  background: transparent;
-  transition:
-    width 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    border-color 160ms ease,
-    padding 160ms ease;
-}
-
-.conversation-jump-nav:hover,
-.conversation-jump-nav:focus-within {
-  width: 14rem;
-  border: 1px solid rgba(226, 237, 231, 0.78);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 18px 46px -34px rgba(30, 41, 37, 0.42);
-  backdrop-filter: blur(14px);
-}
-
-.conversation-jump-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  border-radius: 0.75rem;
-  padding: 0.42rem 0.2rem;
-  color: #8a9891;
-  font-size: 0.875rem;
-  line-height: 1.2;
-  transition:
-    color 140ms ease,
-    background-color 140ms ease,
-    padding 140ms ease;
-}
-
-.conversation-jump-nav:hover .conversation-jump-item,
-.conversation-jump-nav:focus-within .conversation-jump-item {
-  padding: 0.45rem 0.35rem 0.45rem 0.7rem;
-}
-
-.conversation-jump-item:hover {
-  color: var(--text);
-  background: rgba(16, 185, 129, 0.06);
-}
-
-.conversation-jump-item-active {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.conversation-jump-title {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translateX(0.35rem);
-  transition:
-    opacity 140ms ease,
-    transform 140ms ease;
-}
-
-.conversation-jump-nav:hover .conversation-jump-title,
-.conversation-jump-nav:focus-within .conversation-jump-title {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.conversation-jump-marker {
-  height: 0.2rem;
-  width: 0.5rem;
-  flex-shrink: 0;
-  border-radius: 9999px;
-  background: #d3ddd8;
-  transition:
-    width 140ms ease,
-    background-color 140ms ease;
-}
-
-.conversation-jump-item-active .conversation-jump-marker {
-  width: 0.95rem;
-  background: var(--primary);
-}
-
 :global(.dark) .chat-composer {
   border-color: rgba(42, 53, 48, 0.86);
   background: rgba(30, 36, 33, 0.88);
@@ -1099,17 +1110,6 @@ onMounted(async () => {
   background: rgba(16, 185, 129, 0.16);
   color: #7dd3a8;
   box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.16);
-}
-
-:global(.dark) .conversation-jump-nav:hover,
-:global(.dark) .conversation-jump-nav:focus-within {
-  border-color: rgba(42, 53, 48, 0.78);
-  background: rgba(30, 36, 33, 0.82);
-  box-shadow: 0 18px 46px -34px rgba(0, 0, 0, 0.7);
-}
-
-:global(.dark) .conversation-jump-marker {
-  background: #3a4741;
 }
 
 :global(.dark) .markdown-body :deep(.table-scroll),
@@ -1158,6 +1158,64 @@ onMounted(async () => {
   font-size: 1rem;
 }
 
+.markdown-body :deep(.ai-outline-block) {
+  margin: 0.7rem 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg-secondary);
+  padding: 0.15rem 0.9rem 0.6rem;
+}
+
+.markdown-body :deep(.ai-outline-summary) {
+  cursor: pointer;
+  padding: 0.6rem 0;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.markdown-body :deep(.ai-outline-summary::-webkit-details-marker) {
+  display: none;
+}
+
+.markdown-body :deep(.ai-outline-list) {
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.markdown-body :deep(.ai-outline-item) {
+  position: relative;
+  margin: 0;
+  padding-left: 1.35rem;
+  line-height: 1.6;
+}
+
+.markdown-body :deep(.ai-outline-item::before) {
+  content: '';
+  position: absolute;
+  left: 0.15rem;
+  top: 0.55rem;
+  height: 0.375rem;
+  width: 0.375rem;
+  border-radius: 9999px;
+  background: var(--text-secondary);
+}
+
+.markdown-body :deep(.ai-outline-sublist) {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .markdown-body :deep(ul),
 .markdown-body :deep(ol) {
   margin: 0.35rem 0 1rem 1.35rem;
@@ -1170,6 +1228,63 @@ onMounted(async () => {
 
 .markdown-body :deep(ol) {
   list-style: decimal;
+}
+
+.markdown-body :deep(ol.ai-action-list) {
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.markdown-body :deep(.ai-action-item) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border-radius: var(--radius-card);
+  background: var(--ai-accent-soft);
+  box-shadow: var(--shadow-default);
+  padding: 0.6rem 0.85rem;
+  margin: 0;
+  cursor: pointer;
+  transition:
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.markdown-body :deep(.ai-action-item:hover) {
+  background: var(--primary-soft);
+  box-shadow: var(--shadow-hover);
+}
+
+.markdown-body :deep(.ai-action-item:active) {
+  box-shadow: var(--shadow-active);
+  transform: translateY(1px);
+}
+
+.markdown-body :deep(.ai-action-index) {
+  display: inline-flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--ai-accent);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 0.1rem;
+}
+
+.markdown-body :deep(.ai-action-text) {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.6;
 }
 
 .markdown-body :deep(li) {

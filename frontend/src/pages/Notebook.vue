@@ -71,101 +71,73 @@
     </div>
   </div>
 
-  <div
-    v-if="showEdit && notebook"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-    @click.self="showEdit = false"
-  >
-    <div class="gemini-rise w-full max-w-md rounded-glg border border-line bg-surface-elevated p-6 shadow-glg">
-      <h2 class="text-lg font-semibold text-content">编辑笔记本</h2>
-      <form class="mt-4 space-y-4" @submit.prevent="handleUpdate">
-        <input
-          v-model="editForm.name"
-          type="text"
-          placeholder="笔记本名称"
-          required
-          class="w-full rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
-        />
-        <textarea
-          v-model="editForm.description"
-          placeholder="描述（可选）"
-          rows="3"
-          class="w-full resize-none rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
-        />
-        <div class="flex justify-end gap-3">
-          <button
-            type="button"
-            class="gemini-btn gemini-btn-ghost"
-            @click="showEdit = false"
-          >
-            取消
-          </button>
-          <button
-            type="submit"
-            :disabled="saving"
-            class="gemini-btn gemini-btn-primary"
-          >
-            {{ saving ? '保存中...' : '保存' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <BaseModal v-if="notebook" v-model="showEdit" title="编辑笔记本">
+    <form class="mt-4 space-y-4" @submit.prevent="handleUpdate">
+      <BaseInput
+        v-model="editForm.name"
+        type="text"
+        placeholder="笔记本名称"
+        required
+      />
+      <textarea
+        v-model="editForm.description"
+        placeholder="描述（可选）"
+        rows="3"
+        class="w-full resize-none rounded-gmd border border-line bg-surface-secondary px-4 py-3 text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
+      />
+      <div class="flex justify-end gap-3">
+        <BaseButton
+          type="button"
+          variant="ghost"
+          @click="showEdit = false"
+        >
+          取消
+        </BaseButton>
+        <BaseButton
+          type="submit"
+          :disabled="saving"
+        >
+          {{ saving ? '保存中...' : '保存' }}
+        </BaseButton>
+      </div>
+    </form>
+  </BaseModal>
 
-  <div
-    v-if="showDelete && notebook"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-    @click.self="showDelete = false"
-  >
-    <div class="gemini-rise w-full max-w-sm rounded-glg border border-line bg-surface-elevated p-6 shadow-glg">
-      <h2 class="text-lg font-semibold text-content">确认删除</h2>
-      <p class="mt-2 text-sm text-content-secondary">
-        确定要删除「{{ notebook.name }}」吗？此操作不可恢复。
-      </p>
-      <div class="mt-6 flex justify-end gap-3">
-        <button
-          class="gemini-btn gemini-btn-ghost"
-          @click="showDelete = false"
-        >
-          取消
-        </button>
-        <button
-          :disabled="deleting"
-          class="gemini-btn gemini-btn-danger"
-          @click="handleDelete"
-        >
-          {{ deleting ? '删除中...' : '删除' }}
-        </button>
-      </div>
-    </div>
-  </div>
-  <div
-    v-if="showDeleteDocument"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-    @click.self="showDeleteDocument = false"
-  >
-    <div class="gemini-rise w-full max-w-sm rounded-glg border border-line bg-surface-elevated p-6 shadow-glg">
-      <h2 class="text-lg font-semibold text-content">确认删除文档</h2>
-      <p class="mt-2 break-words text-sm text-content-secondary">
-        确定要删除「{{ documentToDelete?.name }}」吗？此操作不可恢复。
-      </p>
-      <div class="mt-6 flex justify-end gap-3">
-        <button
-          class="gemini-btn gemini-btn-ghost"
-          @click="showDeleteDocument = false"
-        >
-          取消
-        </button>
-        <button
-          :disabled="deletingDocument"
-          class="gemini-btn gemini-btn-danger"
-          @click="handleDeleteDocument"
-        >
-          {{ deletingDocument ? '删除中...' : '删除' }}
-        </button>
-      </div>
-    </div>
-  </div>
+  <BaseModal v-if="notebook" v-model="showDelete" title="确认删除" max-width="sm">
+    <p class="mt-2 text-sm text-content-secondary">
+      确定要删除「{{ notebook.name }}」吗？此操作不可恢复。
+    </p>
+    <template #footer>
+      <BaseButton variant="ghost" @click="showDelete = false">
+        取消
+      </BaseButton>
+      <BaseButton
+        variant="danger"
+        :disabled="deleting"
+        @click="handleDelete"
+      >
+        {{ deleting ? '删除中...' : '删除' }}
+      </BaseButton>
+    </template>
+  </BaseModal>
+
+  <BaseModal v-model="showDeleteDocument" title="确认删除文档" max-width="sm">
+    <p class="mt-2 break-words text-sm text-content-secondary">
+      确定要删除「{{ documentToDelete?.name }}」吗？此操作不可恢复。
+    </p>
+    <template #footer>
+      <BaseButton variant="ghost" @click="showDeleteDocument = false">
+        取消
+      </BaseButton>
+      <BaseButton
+        variant="danger"
+        :disabled="deletingDocument"
+        @click="handleDeleteDocument"
+      >
+        {{ deletingDocument ? '删除中...' : '删除' }}
+      </BaseButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -175,6 +147,9 @@ import { ElMessage } from 'element-plus'
 import type { Document } from '@/api/document'
 import DocumentList from '@/components/document/DocumentList.vue'
 import UploadZone from '@/components/document/UploadZone.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 import { useDocumentStore } from '@/stores/document'
 import { useNotebookStore } from '@/stores/notebook'
 

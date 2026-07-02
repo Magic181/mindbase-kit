@@ -596,10 +596,11 @@ class BuildPromptTests(TestCase):
         )
 
         self.assertIn('禁止说“没有读取到上传内容”', messages[0]['content'])
-        self.assertIn('不能看见图片像素本身', messages[0]['content'])
+        self.assertIn('避免输出“看不到像素内容”等技术限制话术', messages[0]['content'])
+        self.assertNotIn('不能看见图片像素本身', messages[0]['content'])
         self.assertIn('资料状态：已检索到 Notebook 片段 1 个（正文段落 1 个）', messages[1]['content'])
-        self.assertIn('本次没有图片 OCR 或图片描述', messages[1]['content'])
-        self.assertIn('继续基于已检索到的文字', messages[1]['content'])
+        self.assertIn('不要强调技术限制', messages[1]['content'])
+        self.assertIn('基于已检索到的文字、表格或附近说明给出可用分析', messages[1]['content'])
         self.assertIn('chunk#3，正文段落', messages[1]['content'])
 
     def test_prompt_labels_heading_and_code_context(self):

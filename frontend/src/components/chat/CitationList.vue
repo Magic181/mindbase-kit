@@ -35,7 +35,7 @@
     <div
       v-for="(citation, index) in visibleCitations"
       :key="citationKey(citation, index)"
-      class="citation-card group rounded-2xl p-4 text-sm transition-all duration-300"
+      class="citation-card group p-4 text-sm transition-all duration-300"
     >
       <template v-if="isWebCitation(citation)">
         <div class="flex items-start justify-between gap-3">
@@ -97,9 +97,16 @@
           {{ documentSourceDetail(citation) }}
         </p>
         <div
-          v-if="documentEvidenceBadges(citation).length"
+          v-if="documentEvidenceBadges(citation).length || relevanceTier(citation)"
           class="mt-2 flex flex-wrap gap-1.5"
         >
+          <span
+            v-if="relevanceTier(citation)"
+            class="citation-tag"
+            :class="`citation-tag-relevance-${relevanceTier(citation)!.tone}`"
+          >
+            {{ relevanceTier(citation)!.label }}
+          </span>
           <span
             v-for="badge in documentEvidenceBadges(citation)"
             :key="badge.label"
@@ -206,7 +213,6 @@ function documentEvidenceBadges(citation: DocumentCitation) {
   const metadata = citation.metadata || {}
   const badges: Array<{ label: string; tone?: 'green' | 'neutral' }> = []
   const reason = stringValue(metadata.retrieval_reason)
-  const score = numberValue(metadata.retrieval_score)
 
   if (reason) {
     badges.push(
@@ -217,7 +223,6 @@ function documentEvidenceBadges(citation: DocumentCitation) {
         .map((label) => ({ label })),
     )
   }
-  if (score !== null) badges.push({ label: `相关度: ${score}` })
 
   const uniqueLabels = new Set<string>()
   return badges.filter((badge) => {
@@ -225,6 +230,25 @@ function documentEvidenceBadges(citation: DocumentCitation) {
     uniqueLabels.add(badge.label)
     return true
   })
+}
+
+const maxRetrievalScore = computed(() => {
+  let max = 0
+  for (const citation of props.citations) {
+    if (isWebCitation(citation)) continue
+    const score = numberValue((citation.metadata || {}).retrieval_score)
+    if (score !== null && score > max) max = score
+  }
+  return max
+})
+
+function relevanceTier(citation: DocumentCitation): { label: string; tone: 'high' | 'medium' | 'low' } | null {
+  const score = numberValue((citation.metadata || {}).retrieval_score)
+  if (score === null || maxRetrievalScore.value <= 0) return null
+  const ratio = score / maxRetrievalScore.value
+  if (ratio >= 0.66) return { label: '相关度: 高', tone: 'high' }
+  if (ratio >= 0.33) return { label: '相关度: 中', tone: 'medium' }
+  return { label: '相关度: 低', tone: 'low' }
 }
 
 function retrievalReasonLabel(reason: string) {
@@ -281,16 +305,15 @@ function stringValue(value: unknown) {
 }
 
 .citation-card {
-  margin-top: 0.625rem;
-  background: #fbfdfc;
-  box-shadow: inset 0 0 0 1px rgba(226, 237, 231, 0.58);
+  margin-top: 0.75rem;
+  border-radius: var(--radius-card);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-default);
 }
 
 .citation-card:hover {
-  background: #f1faf6;
-  box-shadow:
-    inset 0 0 0 1px rgba(16, 185, 129, 0.16),
-    0 10px 24px -22px rgba(16, 185, 129, 0.24);
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-hover);
 }
 
 .citation-toggle {
@@ -354,10 +377,10 @@ function stringValue(value: unknown) {
 .citation-tag {
   display: inline-flex;
   align-items: center;
-  border-radius: 9999px;
-  background: #e6f4ea;
+  border-radius: var(--radius-control);
+  background: var(--primary-soft);
   padding: 0.25rem 0.625rem;
-  color: #047857;
+  color: var(--primary-hover);
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.2;
@@ -368,20 +391,23 @@ function stringValue(value: unknown) {
   color: var(--text-secondary);
 }
 
-:global(.dark) .citation-card {
-  background: rgba(30, 36, 33, 0.78);
-  box-shadow: inset 0 0 0 1px rgba(42, 53, 48, 0.78);
+.citation-tag-relevance-high {
+  background: var(--primary-soft);
+  color: var(--status-high);
+}
+
+.citation-tag-relevance-medium {
+  background: var(--status-medium-soft);
+  color: var(--status-medium);
+}
+
+.citation-tag-relevance-low {
+  background: var(--bg-secondary);
+  color: var(--status-low);
 }
 
 :global(.dark) .citation-section {
   border-top-color: rgba(42, 53, 48, 0.86);
-}
-
-:global(.dark) .citation-card:hover {
-  background: rgba(16, 185, 129, 0.10);
-  box-shadow:
-    inset 0 0 0 1px rgba(16, 185, 129, 0.22),
-    0 14px 30px -24px rgba(16, 185, 129, 0.32);
 }
 
 :global(.dark) .citation-meta,

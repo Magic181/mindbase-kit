@@ -14,6 +14,16 @@
   --primary-contrast: #ffffff;
   --accent-gradient: #10B981;
 
+  /* AI 生成内容标记色，薰衣草紫，与主色区分用户/AI 内容 */
+  --ai-accent: #7C6FF0;
+  --ai-accent-soft: rgba(124, 111, 240, 0.12);
+
+  /* 相关度等语义状态色：中等用琥珀色，仅限"相关度"场景，避免与警示/删除的红色混淆 */
+  --status-high: var(--primary);
+  --status-medium: #D97706;
+  --status-medium-soft: rgba(217, 119, 6, 0.12);
+  --status-low: var(--text-secondary);
+
   /* 60% — 背景：极淡微绿，不是死白 */
   --bg: #F8FAF9;
   --bg-secondary: #EFF4F1;
@@ -30,10 +40,19 @@
   --shadow-md: 0 10px 32px -22px rgba(16, 185, 129, 0.34), 0 2px 8px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 18px 44px -28px rgba(16, 185, 129, 0.45), 0 10px 28px rgba(0, 0, 0, 0.06);
 
+  /* 卡片交互三档：default / hover / active */
+  --shadow-default: var(--shadow-sm);
+  --shadow-hover: var(--shadow-md);
+  --shadow-active: inset 0 1px 2px rgba(16, 185, 129, 0.18);
+
   --radius-sm: 0.75rem;
   --radius-md: 1rem;
   --radius-lg: 1.5rem;
   --radius-pill: 9999px;
+
+  /* 卡片统一 12px，按钮/标签统一 8px */
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
 }
 
 .dark {
@@ -42,6 +61,14 @@
   --primary-soft: rgba(52, 211, 153, 0.13);
   --primary-contrast: #052c1e;
   --accent-gradient: #34d399;
+
+  --ai-accent: #A79BFF;
+  --ai-accent-soft: rgba(167, 155, 255, 0.16);
+
+  --status-high: var(--primary);
+  --status-medium: #F5A94A;
+  --status-medium-soft: rgba(245, 169, 74, 0.14);
+  --status-low: var(--text-secondary);
 
   /* 深灰绿底色，不是纯黑 */
   --bg: #121614;
@@ -56,6 +83,10 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.6);
+
+  --shadow-default: var(--shadow-sm);
+  --shadow-hover: var(--shadow-md);
+  --shadow-active: inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 * {
