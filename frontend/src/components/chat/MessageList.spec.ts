@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Message } from '@/api/chat'
 import MessageList from './MessageList.vue'
 
@@ -35,6 +35,10 @@ function mountList(overrides = {}) {
 }
 
 describe('MessageList', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders loading and empty states', () => {
     expect(mountList({ loading: true }).text()).toContain('加载中')
     expect(mountList().text()).toContain('Empty hint')
@@ -57,5 +61,22 @@ describe('MessageList', () => {
     })
 
     expect(wrapper.findAll('.animate-bounce')).toHaveLength(3)
+  })
+
+  it('copies assistant message content', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const wrapper = mountList({
+      messages: [makeMessage({ content: '  Answer text  ' })],
+    })
+
+    await wrapper.find('[aria-label="复制回答"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(writeText).toHaveBeenCalledWith('Answer text')
+    expect(wrapper.find('[aria-label="复制回答"]').text()).toBe('已复制')
   })
 })

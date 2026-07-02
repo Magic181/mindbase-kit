@@ -66,6 +66,19 @@
           v-if="msg.role === 'assistant'"
           :citations="msg.citations || []"
         />
+        <div
+          v-if="msg.role === 'assistant'"
+          class="mt-2 flex items-center gap-2"
+        >
+          <button
+            type="button"
+            class="assistant-action-btn"
+            aria-label="复制回答"
+            @click="copyMessageContent(msg)"
+          >
+            {{ copiedMessageId === msg.id ? '已复制' : '复制' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -86,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+import { onBeforeUnmount, ref } from 'vue'
 import type { Message } from '@/api/chat'
 import CitationList from '@/components/chat/CitationList.vue'
 import { markdownToHtml } from '@/utils/markdown'
@@ -103,6 +117,15 @@ const emit = defineEmits<{
   action: [value: string]
 }>()
 
+const copiedMessageId = ref<number | null>(null)
+let copyResetTimer: ReturnType<typeof window.setTimeout> | null = null
+
+onBeforeUnmount(() => {
+  if (copyResetTimer) {
+    window.clearTimeout(copyResetTimer)
+  }
+})
+
 function handleActionItemClick(event: Event) {
   const target = event.target as HTMLElement | null
   const item = target?.closest<HTMLElement>('.ai-action-item')
@@ -110,6 +133,42 @@ function handleActionItemClick(event: Event) {
   const action = item.dataset.action
   if (!action) return
   emit('action', action)
+}
+
+async function copyMessageContent(message: Message) {
+  const content = message.content.trim()
+  if (!content) return
+
+  try {
+    await copyText(content)
+    copiedMessageId.value = message.id
+    if (copyResetTimer) {
+      window.clearTimeout(copyResetTimer)
+    }
+    copyResetTimer = window.setTimeout(() => {
+      copiedMessageId.value = null
+      copyResetTimer = null
+    }, 1500)
+  } catch {
+    // Keep the interaction quiet; users can retry without losing context.
+  }
+}
+
+async function copyText(content: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(content)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = content
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
 }
 </script>
 
@@ -133,6 +192,33 @@ function handleActionItemClick(event: Event) {
   color: var(--ai-accent);
   background: var(--ai-accent-soft);
   box-shadow: inset 0 0 0 1px rgba(124, 111, 240, 0.16);
+}
+
+.assistant-action-btn {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 0.65rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.assistant-action-btn:hover {
+  color: var(--text);
+  background: var(--bg-secondary);
+}
+
+.assistant-action-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
 }
 
 :global(.dark) .markdown-body :deep(.table-scroll),
