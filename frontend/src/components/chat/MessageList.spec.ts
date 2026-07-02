@@ -77,6 +77,33 @@ describe('MessageList', () => {
     await wrapper.vm.$nextTick()
 
     expect(writeText).toHaveBeenCalledWith('Answer text')
-    expect(wrapper.find('[aria-label="复制回答"]').text()).toBe('已复制')
+    expect(wrapper.find('[aria-label="已复制回答"]').exists()).toBe(true)
+  })
+
+  it('copies user message content', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const wrapper = mountList({
+      messages: [makeMessage({ role: 'user', content: '  Question text  ' })],
+    })
+
+    await wrapper.find('[aria-label="复制问题"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(writeText).toHaveBeenCalledWith('Question text')
+    expect(wrapper.find('[aria-label="已复制问题"]').exists()).toBe(true)
+  })
+
+  it('emits user message content for editing', async () => {
+    const wrapper = mountList({
+      messages: [makeMessage({ role: 'user', content: '  Question text  ' })],
+    })
+
+    await wrapper.find('[aria-label="修改问题"]').trigger('click')
+
+    expect(wrapper.emitted('edit')?.[0]).toEqual(['Question text'])
   })
 })

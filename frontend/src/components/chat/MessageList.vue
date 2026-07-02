@@ -67,16 +67,56 @@
           :citations="msg.citations || []"
         />
         <div
-          v-if="msg.role === 'assistant'"
-          class="mt-2 flex items-center gap-2"
+          class="message-action-row"
+          :class="msg.role === 'user' ? 'justify-end pr-1' : 'justify-start pl-1'"
         >
           <button
             type="button"
-            class="assistant-action-btn"
-            aria-label="复制回答"
+            class="message-action-btn"
+            :aria-label="copyButtonLabel(msg)"
+            :title="copyButtonLabel(msg)"
             @click="copyMessageContent(msg)"
           >
-            {{ copiedMessageId === msg.id ? '已复制' : '复制' }}
+            <svg
+              v-if="copiedMessageId === msg.id"
+              viewBox="0 0 24 24"
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            <svg
+              v-else
+              viewBox="0 0 24 24"
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="9" y="9" width="11" height="11" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+          <button
+            v-if="msg.role === 'user'"
+            type="button"
+            class="message-action-btn"
+            aria-label="修改问题"
+            title="修改问题"
+            @click="editMessageContent(msg)"
+          >
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
           </button>
         </div>
       </div>
@@ -115,6 +155,7 @@ defineProps<{
 
 const emit = defineEmits<{
   action: [value: string]
+  edit: [value: string]
 }>()
 
 const copiedMessageId = ref<number | null>(null)
@@ -135,6 +176,13 @@ function handleActionItemClick(event: Event) {
   emit('action', action)
 }
 
+function copyButtonLabel(message: Message) {
+  if (copiedMessageId.value === message.id) {
+    return message.role === 'user' ? '已复制问题' : '已复制回答'
+  }
+  return message.role === 'user' ? '复制问题' : '复制回答'
+}
+
 async function copyMessageContent(message: Message) {
   const content = message.content.trim()
   if (!content) return
@@ -152,6 +200,12 @@ async function copyMessageContent(message: Message) {
   } catch {
     // Keep the interaction quiet; users can retry without losing context.
   }
+}
+
+function editMessageContent(message: Message) {
+  const content = message.content.trim()
+  if (!content) return
+  emit('edit', content)
 }
 
 async function copyText(content: string) {
@@ -194,29 +248,42 @@ async function copyText(content: string) {
   box-shadow: inset 0 0 0 1px rgba(124, 111, 240, 0.16);
 }
 
-.assistant-action-btn {
-  display: inline-flex;
+.message-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
   min-height: 1.75rem;
+  margin-top: 0.35rem;
+}
+
+.message-action-btn {
+  display: inline-flex;
+  height: 1.75rem;
+  width: 1.75rem;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
-  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
   color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
+  opacity: 0.82;
   transition:
     background-color 140ms ease,
     color 140ms ease,
-    box-shadow 140ms ease;
+    box-shadow 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
-.assistant-action-btn:hover {
+.message-action-btn:hover {
   color: var(--text);
   background: var(--bg-secondary);
+  opacity: 1;
 }
 
-.assistant-action-btn:focus-visible {
+.message-action-btn:active {
+  transform: translateY(1px);
+}
+
+.message-action-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
 }

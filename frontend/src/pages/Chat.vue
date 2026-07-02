@@ -127,6 +127,7 @@
             :streaming-assistant-id="streamingAssistantId"
             :set-message-element="setMessageElement"
             @action="handleActionItem"
+            @edit="handleEditMessage"
           />
         </div>
 
@@ -334,6 +335,10 @@ function messageJumpTitle(content: string) {
 
 function handleActionItem(action: string) {
   input.value = action
+}
+
+function handleEditMessage(content: string) {
+  input.value = content
 }
 
 async function loadConversations() {
