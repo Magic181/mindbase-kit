@@ -74,7 +74,8 @@ export const chatApi = {
     content: string,
     searchMode: SearchMode = 'local',
     handlers: SendMessageStreamHandlers = {},
-  ) => sendMessageStream(conversationId, content, searchMode, handlers),
+    signal?: AbortSignal,
+  ) => sendMessageStream(conversationId, content, searchMode, handlers, signal),
 }
 
 async function sendMessageStream(
@@ -82,6 +83,7 @@ async function sendMessageStream(
   content: string,
   searchMode: SearchMode,
   handlers: SendMessageStreamHandlers,
+  signal?: AbortSignal,
 ) {
   await ensureFreshToken().catch(() => {})
   const token = localStorage.getItem('access_token')
@@ -95,6 +97,7 @@ async function sendMessageStream(
       content,
       search_mode: searchMode,
     }),
+    signal,
   })
 
   if (!response.ok || !response.body) {

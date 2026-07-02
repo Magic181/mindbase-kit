@@ -23,6 +23,8 @@ export function useChatStreaming({
   const sending = ref(false)
   const streamingAssistantId = ref<number | null>(null)
   const sendFailed = ref(false)
+  const canStopGeneration = ref(false)
+  let activeAbortController: AbortController | null = null
 
   function appendMessage(message: Message) {
     if (messages.value.some((item) => item.id === message.id)) return
@@ -78,6 +80,9 @@ export function useChatStreaming({
     sending.value = true
     streamingAssistantId.value = null
     sendFailed.value = false
+    const abortController = new AbortController()
+    activeAbortController = abortController
+    canStopGeneration.value = true
     let receivedUserMessage = false
     await scrollMessagesToBottom('smooth')
     try {
@@ -100,17 +105,32 @@ export function useChatStreaming({
             void scrollMessagesToBottom('smooth')
           },
         },
+        abortController.signal,
       )
     } catch {
-      if (!receivedUserMessage) {
+      if (abortController.signal.aborted) {
+        if (!receivedUserMessage) {
+          input.value = content
+        } else {
+          await loadMessages()
+        }
+      } else if (!receivedUserMessage) {
         await sendMessageWithoutStreaming(conversationId, content)
       } else {
         await loadMessages()
       }
     } finally {
+      if (activeAbortController === abortController) {
+        activeAbortController = null
+      }
+      canStopGeneration.value = false
       streamingAssistantId.value = null
       sending.value = false
     }
+  }
+
+  function stopGeneration() {
+    activeAbortController?.abort()
   }
 
   async function sendMessageWithoutStreaming(
@@ -136,7 +156,9 @@ export function useChatStreaming({
     sending,
     streamingAssistantId,
     sendFailed,
+    canStopGeneration,
     sendMessage,
+    stopGeneration,
     appendMessage,
     appendAssistantDelta,
     replaceStreamingAssistant,

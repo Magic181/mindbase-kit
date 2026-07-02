@@ -143,8 +143,10 @@
         v-model:web-search-enabled="webSearchEnabled"
         :sending="sending"
         :send-failed="sendFailed"
+        :can-stop-generation="canStopGeneration"
         :active-conversation-id="activeConversationId"
         @send="sendMessage"
+        @stop="stopGeneration"
       />
     </div>
   </div>
@@ -215,7 +217,9 @@ const {
   sending,
   streamingAssistantId,
   sendFailed,
+  canStopGeneration,
   sendMessage,
+  stopGeneration,
 } = useChatStreaming({
   activeConversationId,
   input,

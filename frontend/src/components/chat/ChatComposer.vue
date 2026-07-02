@@ -27,6 +27,18 @@
           @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         />
         <button
+          v-if="canStopGeneration"
+          type="button"
+          class="gemini-icon-btn gemini-icon-btn-primary shrink-0"
+          aria-label="停止生成"
+          @click="emit('stop')"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+            <rect x="7" y="7" width="10" height="10" rx="1.5" />
+          </svg>
+        </button>
+        <button
+          v-else
           type="submit"
           :disabled="!modelValue.trim() || sending || !activeConversationId"
           class="gemini-icon-btn gemini-icon-btn-primary shrink-0"
@@ -63,6 +75,7 @@ defineProps<{
   webSearchEnabled: boolean
   sending: boolean
   sendFailed: boolean
+  canStopGeneration: boolean
   activeConversationId: number | null
 }>()
 
@@ -70,6 +83,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:webSearchEnabled': [value: boolean]
   send: []
+  stop: []
 }>()
 </script>
 

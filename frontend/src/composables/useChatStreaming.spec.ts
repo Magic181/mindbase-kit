@@ -78,6 +78,7 @@ describe('useChatStreaming', () => {
       'Question',
       'hybrid',
       expect.any(Object),
+      expect.any(AbortSignal),
     )
     expect(harness.input.value).toBe('')
     expect(harness.streaming.sending.value).toBe(false)
@@ -155,6 +156,34 @@ describe('useChatStreaming', () => {
     expect(harness.loadMessages).toHaveBeenCalledOnce()
     expect(harness.streaming.sendFailed.value).toBe(false)
     expect(chatApi.sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('aborts the active streaming request and reloads messages after the user message exists', async () => {
+    const userMessage = makeMessage({ id: 41, role: 'user', content: 'Question' })
+    let rejectStream: ((error: Error) => void) | null = null
+    vi.mocked(chatApi.sendMessageStream).mockImplementation((_id, _content, _mode, handlers, signal) => {
+      handlers!.onUserMessage?.(userMessage)
+      signal!.addEventListener('abort', () => {
+        rejectStream?.(new DOMException('Aborted', 'AbortError') as Error)
+      })
+      return new Promise((_, reject) => {
+        rejectStream = reject
+      })
+    })
+
+    const harness = makeHarness()
+    const pending = harness.streaming.sendMessage()
+    await Promise.resolve()
+
+    expect(harness.streaming.sending.value).toBe(true)
+    expect(harness.streaming.canStopGeneration.value).toBe(true)
+    harness.streaming.stopGeneration()
+    await pending
+
+    expect(harness.loadMessages).toHaveBeenCalledOnce()
+    expect(harness.streaming.sending.value).toBe(false)
+    expect(harness.streaming.canStopGeneration.value).toBe(false)
+    expect(harness.streaming.sendFailed.value).toBe(false)
   })
 
   it('does not send blank messages or messages without an active conversation', async () => {

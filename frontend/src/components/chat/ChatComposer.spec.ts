@@ -9,6 +9,7 @@ function mountComposer(overrides = {}) {
       webSearchEnabled: false,
       sending: false,
       sendFailed: false,
+      canStopGeneration: false,
       activeConversationId: 10,
       ...overrides,
     },
@@ -26,6 +27,18 @@ describe('ChatComposer', () => {
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['Next question'])
     expect(wrapper.emitted('update:webSearchEnabled')?.[0]).toEqual([true])
     expect(wrapper.emitted('send')).toHaveLength(1)
+  })
+
+  it('emits stop while generation can be stopped', async () => {
+    const wrapper = mountComposer({
+      sending: true,
+      canStopGeneration: true,
+    })
+
+    await wrapper.find('[aria-label="停止生成"]').trigger('click')
+
+    expect(wrapper.emitted('stop')).toHaveLength(1)
+    expect(wrapper.find('[aria-label="发送"]').exists()).toBe(false)
   })
 
   it('disables send while input is blank or chat is unavailable', () => {
