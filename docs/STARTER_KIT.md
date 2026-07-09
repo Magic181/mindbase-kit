@@ -24,7 +24,7 @@ MindBase Kit 的目标是提供一个可继续扩展的 AI 知识产品底座。
 - `frontend/src/components/brand/StarterLogo.vue`
 - `frontend/src/pages/Landing.vue`
 - `frontend/public/assets/starter-hero.png`
-- `docs/assets/`
+- `frontend/public/assets/readme/`
 - `frontend/index.html`
 
 建议先替换：

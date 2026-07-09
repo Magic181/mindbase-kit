@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/mindbase-banner.png" alt="MindBase Kit - AI Knowledge Starter Kit" width="100%" />
+  <img src="frontend/public/assets/readme/mindbase-banner.png" alt="MindBase Kit - AI Knowledge Starter Kit" width="100%" />
 </p>
 
 <h1 align="center">MindBase Kit</h1>
@@ -46,18 +46,18 @@
 ## Demo Flow
 
 <p align="center">
-  <img src="docs/assets/mindbase-demo.gif" alt="MindBase Kit demo flow" width="860" />
+  <img src="frontend/public/assets/readme/mindbase-demo.gif" alt="MindBase Kit demo flow" width="860" />
 </p>
 
 ## Screenshots
 
 | Landing | Dashboard |
 |---|---|
-| ![Landing](docs/assets/screenshot-landing.png) | ![Dashboard](docs/assets/screenshot-dashboard.png) |
+| ![Landing](frontend/public/assets/readme/screenshot-landing.png) | ![Dashboard](frontend/public/assets/readme/screenshot-dashboard.png) |
 
 | Knowledge Base | Admin + Billing |
 |---|---|
-| ![Knowledge Base](docs/assets/screenshot-notebook.png) | ![Admin and Billing](docs/assets/screenshot-admin.png) |
+| ![Knowledge Base](frontend/public/assets/readme/screenshot-notebook.png) | ![Admin and Billing](frontend/public/assets/readme/screenshot-admin.png) |
 
 ## Why MindBase Kit
 
@@ -139,7 +139,7 @@ docker compose -f docker-compose.dev.yml up -d
 AI-Notebook/
 ├── backend/                 # Django API, Celery, parsing, RAG
 ├── frontend/                # Vue app, SaaS shell, Landing, demo surfaces
-├── docs/                    # Documentation, roadmap, changelog, visual assets
+├── docs/                    # Customer-facing docs, roadmap, changelog
 ├── docker-compose.yml       # One-command full-stack deployment
 ├── docker-compose.dev.yml   # MySQL + Redis for local development
 └── .env.example
@@ -149,7 +149,6 @@ AI-Notebook/
 
 - [Starter Kit Guide](docs/STARTER_KIT.md)
 - [Deployment Guide](docs/devops/部署指南.md)
-- [Environment Configuration](docs/devops/环境配置.md)
 - [Architecture](docs/engineering/架构设计.md)
 - [API Spec](docs/engineering/API规范.md)
 - [RAG Architecture](docs/ai/RAG架构.md)

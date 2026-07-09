@@ -33,6 +33,11 @@ build/
 *.swo
 *~
 
+# Local agent/tooling state
+.agents/
+.claude/
+.codex/
+
 # OS
 .DS_Store
 Thumbs.db
