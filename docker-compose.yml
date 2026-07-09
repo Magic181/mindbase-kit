@@ -2,7 +2,7 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: ai-notebook-kit-web
+    container_name: mindbase-kit-web
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -16,7 +16,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: ai-notebook-kit-api
+    container_name: mindbase-kit-api
     restart: unless-stopped
     env_file:
       - .env
@@ -46,7 +46,7 @@ services:
   worker:
     build:
       context: ./backend
-    container_name: ai-notebook-kit-worker
+    container_name: mindbase-kit-worker
     restart: unless-stopped
     env_file:
       - .env
@@ -75,7 +75,7 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: ai-notebook-kit-mysql
+    container_name: mindbase-kit-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "${DOCKER_MYSQL_ROOT_PASSWORD:-root-password}"
@@ -92,7 +92,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ai-notebook-kit-redis
+    container_name: mindbase-kit-redis
     restart: unless-stopped
     volumes:
       - redis_data:/data

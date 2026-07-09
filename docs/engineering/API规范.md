@@ -498,7 +498,7 @@ GET /api/v1/health/
   "message": "success",
   "data": {
     "status": "ok",
-    "service": "ai-notebook-api",
+    "service": "mindbase-kit-api",
     "version": "0.1.0"
   }
 }

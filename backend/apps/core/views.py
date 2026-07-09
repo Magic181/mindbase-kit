@@ -8,6 +8,6 @@ from rest_framework.response import Response
 def health(request):
     return Response({
         'status': 'ok',
-        'service': 'ai-notebook-api',
+        'service': 'mindbase-kit-api',
         'version': '0.1.0',
     })

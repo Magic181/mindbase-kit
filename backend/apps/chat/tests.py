@@ -247,7 +247,7 @@ class ConversationSendMessageTests(TestCase):
         self.assertIn('用户问题：现在呢', messages[-1]['content'])
 
     @patch('apps.chat.services.retrieve_citations')
-    @patch('apps.chat.services.call_deepseek_chat', return_value='我是 AI Notebook 的资料协作助手。')
+    @patch('apps.chat.services.call_deepseek_chat', return_value='我是 MindBase Kit 的资料协作助手。')
     def test_general_model_question_skips_local_citations(
         self,
         call_deepseek_chat,
@@ -263,7 +263,7 @@ class ConversationSendMessageTests(TestCase):
         retrieve_citations.assert_not_called()
 
         assistant = Message.objects.filter(role=MessageRole.ASSISTANT).latest('id')
-        self.assertEqual(assistant.content, '我是 AI Notebook 的资料协作助手。')
+        self.assertEqual(assistant.content, '我是 MindBase Kit 的资料协作助手。')
         self.assertEqual(assistant.citations, [])
 
         messages = call_deepseek_chat.call_args.args[0]

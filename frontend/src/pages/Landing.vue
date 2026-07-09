@@ -11,7 +11,7 @@
           <a href="#architecture" class="hover:text-content">Architecture</a>
           <a href="#pricing" class="hover:text-content">Pricing</a>
           <a href="#faq" class="hover:text-content">FAQ</a>
-          <a href="https://github.com/Magic181/AI-notebook" class="hover:text-content" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/Magic181/mindbase-kit" class="hover:text-content" target="_blank" rel="noreferrer">GitHub</a>
         </nav>
         <div class="flex shrink-0 items-center gap-2">
           <RouterLink to="/login" class="gemini-btn gemini-btn-ghost hidden sm:inline-flex">Login</RouterLink>
@@ -174,7 +174,7 @@
             </p>
             <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <RouterLink to="/register" class="gemini-btn gemini-btn-primary justify-center px-6 py-3">Launch Demo</RouterLink>
-              <a href="https://github.com/Magic181/AI-notebook" target="_blank" rel="noreferrer" class="gemini-btn justify-center border-line bg-white px-6 py-3 text-content hover:bg-surface-hover">Star on GitHub</a>
+              <a href="https://github.com/Magic181/mindbase-kit" target="_blank" rel="noreferrer" class="gemini-btn justify-center border-line bg-white px-6 py-3 text-content hover:bg-surface-hover">Star on GitHub</a>
             </div>
           </div>
         </div>

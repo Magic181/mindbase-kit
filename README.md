@@ -136,7 +136,7 @@ docker compose -f docker-compose.dev.yml up -d
 ## Project Structure
 
 ```text
-AI-Notebook/
+mindbase-kit/
 ├── backend/                 # Django API, Celery, parsing, RAG
 ├── frontend/                # Vue app, SaaS shell, Landing, demo surfaces
 ├── docs/                    # Customer-facing docs, roadmap, changelog
@@ -174,4 +174,4 @@ The Pro path can include hosted demo, premium docs, Stripe integration, SSO, wor
 
 ## Repository
 
-https://github.com/Magic181/AI-notebook
+https://github.com/Magic181/mindbase-kit
