@@ -2,11 +2,11 @@
   <div class="flex min-h-screen items-center justify-center bg-surface-secondary px-4">
     <div class="gemini-rise w-full max-w-md rounded-2xl border border-line bg-surface-elevated p-8 shadow-gmd">
       <div class="mb-6 flex justify-center">
-        <StarterLogo title="AI Notebook Kit" subtitle="Starter Demo" />
+        <StarterLogo title="MindBase Kit" subtitle="AI Knowledge Starter Kit" />
       </div>
       <h1 class="text-center text-xl font-semibold tracking-tight text-content">欢迎回来</h1>
       <p class="mt-1.5 text-center text-sm text-content-secondary">
-        登录你的 AI 知识工作台
+        登录你的 AI Knowledge SaaS demo
       </p>
       <form class="mt-6 space-y-4" @submit.prevent="handleLogin">
         <BaseInput

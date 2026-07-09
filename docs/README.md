@@ -1,14 +1,15 @@
-# AI Notebook Kit 文档目录
+# MindBase Kit 文档目录
 
 > 最后更新：2026-07-09
 
-本目录记录 AI Notebook Kit 当前真实可运行的 Starter Kit 能力、工程约定和部署方式。
+本目录记录 MindBase Kit 当前真实可运行的 Starter Kit 能力、工程约定和部署方式。
 
 ## 快速入口
 
 | 类别 | 文档 | 适合场景 |
 |------|------|----------|
 | Starter Kit | [Starter Kit 使用指南](STARTER_KIT.md) | 定制品牌、替换模块、理解 `/` 与 `/app` 的分层 |
+| 发布 | [Changelog](CHANGELOG.md) | 查看模板化、Docker、品牌和页面能力的变更记录 |
 | 产品 | [需求文档](product/需求文档.md) | 理解目标用户、核心流程和长期规划 |
 | 产品 | [产品路线图](product/产品路线图.md) | 查看批次进度、已完成能力和后续方向 |
 | 工程 | [架构设计](engineering/架构设计.md) | 理解前后端、文档解析、RAG 和 AI 服务边界 |

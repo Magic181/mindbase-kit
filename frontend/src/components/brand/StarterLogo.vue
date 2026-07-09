@@ -1,5 +1,5 @@
 <template>
-  <div class="inline-flex min-w-0 items-center gap-2.5">
+  <div class="inline-flex min-w-0 max-w-full items-center gap-2.5 overflow-hidden">
     <span
       class="grid h-9 w-9 shrink-0 place-items-center rounded-control bg-primary text-sm font-bold text-white shadow-gsm"
       aria-hidden="true"
@@ -18,7 +18,7 @@
         />
       </svg>
     </span>
-    <span v-if="showText" class="min-w-0">
+    <span v-if="showText" class="min-w-0 overflow-hidden">
       <span class="block truncate text-base font-semibold tracking-tight text-content">
         {{ title }}
       </span>
@@ -37,7 +37,7 @@ withDefaults(
     showText?: boolean
   }>(),
   {
-    title: 'AI Notebook Kit',
+    title: 'MindBase Kit',
     subtitle: '',
     showText: true,
   },

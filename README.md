@@ -1,42 +1,114 @@
-# AI Notebook Kit
+<p align="center">
+  <img src="docs/assets/mindbase-banner.png" alt="MindBase Kit - AI Knowledge Starter Kit" width="100%" />
+</p>
 
-AI Notebook Kit 是一个可复用的 AI 知识库 Starter Kit，而不是只能运行单一业务形态的示例应用。它把常见 AI SaaS 的基础能力打包好：账号体系、Notebook、文档上传、解析分块、OCR、视觉描述、RAG 问答、联网搜索、引用溯源、Landing Page、演示站和 Docker 一键部署。
+<h1 align="center">MindBase Kit</h1>
 
-## 你会得到什么
+<p align="center">
+  <strong>Build AI Knowledge SaaS in Minutes.</strong>
+</p>
 
-| 模块 | 能力 |
-|------|------|
-| 品牌与演示 | Logo 组件、Landing Page、公开首页、登录后 Demo 应用区 |
-| 前端应用 | Vue 3 + Vite + Pinia + Tailwind CSS + Element Plus |
-| 后端 API | Django 5 + DRF + SimpleJWT + 统一响应格式 + 限流 |
-| 知识库 | Notebook CRUD、收藏、搜索、文档上传、解析状态追踪 |
-| AI 能力 | DeepSeek/OpenAI-compatible Chat、RAG、Tavily 联网搜索、引用来源 |
-| 多模态 | PDF/DOCX/TXT/MD 解析、图片资产、OCR、可选视觉描述 |
-| 任务队列 | Celery + Redis，支持本地 eager 模式 |
-| 部署 | 生产 Dockerfile、Nginx 反向代理、Docker Compose 全栈编排 |
+<p align="center">
+  Production Ready · Authentication · Docker · Responsive · AI SDK · RAG · OCR · Streaming · Deploy Ready · Starter Kit
+</p>
 
-## 快速预览
+<p align="center">
+  <a href="http://localhost:8080">Demo</a>
+  ·
+  <a href="docs/README.md">Documentation</a>
+  ·
+  <a href="docs/product/产品路线图.md">Roadmap</a>
+  ·
+  <a href="docs/CHANGELOG.md">Changelog</a>
+  ·
+  <a href="#sponsor">Sponsor</a>
+  ·
+  <a href="#buy-pro">Buy Pro</a>
+</p>
+
+<p align="center">
+  <img alt="Vue 3" src="https://img.shields.io/badge/Vue%203-42b883?style=flat-square" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178c6?style=flat-square" />
+  <img alt="Tailwind" src="https://img.shields.io/badge/Tailwind-38bdf8?style=flat-square" />
+  <img alt="Django" src="https://img.shields.io/badge/Django-0c4b33?style=flat-square" />
+  <img alt="DRF" src="https://img.shields.io/badge/DRF-bb2d3b?style=flat-square" />
+  <img alt="JWT" src="https://img.shields.io/badge/JWT-111827?style=flat-square" />
+  <img alt="Celery" src="https://img.shields.io/badge/Celery-37814a?style=flat-square" />
+  <img alt="Redis" src="https://img.shields.io/badge/Redis-dc382d?style=flat-square" />
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ed?style=flat-square" />
+  <img alt="RAG" src="https://img.shields.io/badge/RAG-10b981?style=flat-square" />
+  <img alt="OCR" src="https://img.shields.io/badge/OCR-7c6ff0?style=flat-square" />
+  <img alt="OpenAI Compatible" src="https://img.shields.io/badge/OpenAI%20Compatible-111827?style=flat-square" />
+  <img alt="DeepSeek" src="https://img.shields.io/badge/DeepSeek-4f46e5?style=flat-square" />
+  <img alt="Tavily" src="https://img.shields.io/badge/Tavily-059669?style=flat-square" />
+</p>
+
+## Demo Flow
+
+<p align="center">
+  <img src="docs/assets/mindbase-demo.gif" alt="MindBase Kit demo flow" width="860" />
+</p>
+
+## Screenshots
+
+| Landing | Dashboard |
+|---|---|
+| ![Landing](docs/assets/screenshot-landing.png) | ![Dashboard](docs/assets/screenshot-dashboard.png) |
+
+| Knowledge Base | Admin + Billing |
+|---|---|
+| ![Knowledge Base](docs/assets/screenshot-notebook.png) | ![Admin and Billing](docs/assets/screenshot-admin.png) |
+
+## Why MindBase Kit
+
+MindBase Kit is a production-oriented AI Knowledge Starter Kit. It ships with a complete demo product, but the real value is the reusable SaaS foundation: authentication, document ingestion, OCR, RAG, streaming chat, admin pages, billing-ready surfaces, and Docker deployment.
+
+## Features
+
+| Area | Included |
+|------|----------|
+| SaaS shell | Landing Page, Dashboard, Knowledge Base, Chat, Admin, Billing |
+| Auth | Register, login, refresh, logout, JWT guards |
+| Knowledge | Notebook CRUD, favorites, search, document upload, parse status |
+| AI | OpenAI-compatible chat, DeepSeek defaults, streaming, Tavily hybrid search |
+| RAG | Chunking, structure-aware retrieval, citations, OCR, optional vision captions |
+| Admin Ready | Users, API keys, model routing, audit log UI surfaces |
+| Pricing Ready | Plans, subscription state, usage meters, billing events |
+| DevOps | Dockerfile, Docker Compose, Nginx, Gunicorn, Celery, MySQL, Redis |
+
+## Tech Stack
+
+| Layer | Stack |
+|------|-------|
+| Frontend | Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS, Element Plus |
+| Backend | Django 5, Django REST Framework, SimpleJWT, PyMySQL |
+| Async | Celery, Redis |
+| Database | MySQL for Docker/self-hosting, SQLite for quick local mode |
+| AI | DeepSeek/OpenAI-compatible API, Tavily Search, Tesseract OCR, optional vision models |
+| Deploy | Nginx, Gunicorn, Docker Compose |
+
+## Quick Start
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
 
-打开：
+Open:
 
-- Landing Page: `http://localhost:8080`
-- Demo 应用: `http://localhost:8080/app`
-- API 健康检查: `http://localhost:8080/api/v1/health/`
+- Landing: `http://localhost:8080`
+- Demo app: `http://localhost:8080/app`
+- API health: `http://localhost:8080/api/v1/health/`
 
-首次进入 Demo 可以注册账号。需要后台管理员时执行：
+Create an admin user:
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
 ```
 
-## 本地开发
+## Local Development
 
-后端：
+Backend:
 
 ```bash
 cd backend
@@ -47,7 +119,7 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-前端：
+Frontend:
 
 ```bash
 cd frontend
@@ -55,89 +127,52 @@ pnpm install
 pnpm dev
 ```
 
-本地开发默认地址：
-
-- 前端: `http://localhost:5173`
-- 后端: `http://localhost:8000`
-
-如果只想启动 MySQL 和 Redis：
+Development services only:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-## 推荐目录
+## Project Structure
 
 ```text
 AI-Notebook/
-├── backend/                 # Django API、Celery、文档解析、RAG
-│   ├── apps/
-│   │   ├── core/            # 健康检查、统一响应、异常处理、限流
-│   │   ├── users/           # 注册、登录、JWT、当前用户
-│   │   ├── notebooks/       # Notebook CRUD、收藏、搜索
-│   │   ├── documents/       # 上传、解析、OCR、视觉描述、资产
-│   │   └── chat/            # 会话、消息、RAG、联网搜索、LLM 调用
-│   ├── config/              # Django、Celery、URL 配置
-│   └── Dockerfile
-├── frontend/
-│   ├── public/assets/       # Landing 视觉资产
-│   ├── src/
-│   │   ├── api/             # API 客户端
-│   │   ├── components/      # 品牌、UI、业务组件
-│   │   ├── composables/     # 流式聊天等组合逻辑
-│   │   ├── layouts/         # 登录后应用框架
-│   │   ├── pages/           # Landing、认证、Notebook、Chat
-│   │   ├── router/          # 公开页与 /app 应用区路由
-│   │   ├── stores/          # Pinia 状态
-│   │   └── styles/          # 设计 token 与全局样式
-│   ├── Dockerfile
-│   └── nginx.conf
-├── docs/                    # 产品、工程、AI、设计、运维文档
-├── docker-compose.yml       # 生产式一键部署
-├── docker-compose.dev.yml   # 开发依赖服务
+├── backend/                 # Django API, Celery, parsing, RAG
+├── frontend/                # Vue app, SaaS shell, Landing, demo surfaces
+├── docs/                    # Documentation, roadmap, changelog, visual assets
+├── docker-compose.yml       # One-command full-stack deployment
+├── docker-compose.dev.yml   # MySQL + Redis for local development
 └── .env.example
 ```
 
-## 自定义 Starter Kit
+## Documentation
 
-1. 改品牌：调整 `frontend/src/components/brand/StarterLogo.vue`、Landing 文案和 `frontend/public/assets/starter-hero.png`。
-2. 改应用壳：公开页在 `/`，登录后应用在 `/app`，可把 Notebook 产品替换为自己的业务模块。
-3. 改 AI Provider：在 `.env` 中替换 `DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`、`DEEPSEEK_API_KEY`。
-4. 改搜索：配置 `TAVILY_API_KEY` 后可使用联网搜索或混合检索。
-5. 改解析能力：通过 `OCR_*` 和 `VISION_*` 环境变量启用 OCR 与视觉描述。
+- [Starter Kit Guide](docs/STARTER_KIT.md)
+- [Deployment Guide](docs/devops/部署指南.md)
+- [Environment Configuration](docs/devops/环境配置.md)
+- [Architecture](docs/engineering/架构设计.md)
+- [API Spec](docs/engineering/API规范.md)
+- [RAG Architecture](docs/ai/RAG架构.md)
+- [Roadmap](docs/product/产品路线图.md)
+- [Changelog](docs/CHANGELOG.md)
 
-## 常用命令
+## GitHub Home
 
-```bash
-# 前端
-cd frontend
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
+- ⭐ Demo: local Docker demo is ready at `http://localhost:8080`
+- ⭐ Documentation: `docs/`
+- ⭐ Roadmap: `docs/product/产品路线图.md`
+- ⭐ Changelog: `docs/CHANGELOG.md`
+- ⭐ Sponsor: open source support section ready
+- ⭐ Buy Pro: commercial template path ready
 
-# 后端
-cd backend
-python manage.py check
-python manage.py test apps.chat apps.documents apps.notebooks apps.users
+## Sponsor
 
-# Docker
-docker compose up -d --build
-docker compose logs -f backend
-docker compose down
-```
+MindBase Kit is structured so an open-source edition and a Pro template can coexist. Sponsor links can point to GitHub Sponsors, Ko-fi, Lemon Squeezy, or Polar when you are ready.
 
-Docker 一键部署使用 `DOCKER_MYSQL_*` 变量，避免和本地开发的 `MYSQL_USER=root` 等配置冲突。
+## Buy Pro
 
-## 文档
+The Pro path can include hosted demo, premium docs, Stripe integration, SSO, workspace roles, vector database adapters, and deployment templates.
 
-- [Starter Kit 使用指南](docs/STARTER_KIT.md)
-- [部署指南](docs/devops/部署指南.md)
-- [环境配置](docs/devops/环境配置.md)
-- [架构设计](docs/engineering/架构设计.md)
-- [API 规范](docs/engineering/API规范.md)
-- [RAG 架构](docs/ai/RAG架构.md)
-
-## 仓库
+## Repository
 
 https://github.com/Magic181/AI-notebook

@@ -2,7 +2,7 @@
 
 > 最后更新：2026-07-09
 
-AI Notebook Kit 的目标是提供一个可继续扩展的 AI 知识产品底座。它保留了一个完整 Demo，但代码结构、路由和部署方式都按 Starter Kit 组织，方便你替换品牌、产品模块和 AI Provider。
+MindBase Kit 的目标是提供一个可继续扩展的 AI 知识产品底座。它保留了一个完整 Demo，但代码结构、路由和部署方式都按 Starter Kit 组织，方便你替换品牌、产品模块和 AI Provider。
 
 ## 核心形态
 
@@ -10,7 +10,10 @@ AI Notebook Kit 的目标是提供一个可继续扩展的 AI 知识产品底座
 |------|------|------|
 | Landing Page | `/` | 公开介绍页，展示品牌、能力、技术栈和部署方式 |
 | 认证页 | `/login`, `/register` | Starter Demo 的账号入口 |
-| Demo 应用 | `/app` | 登录后的 Notebook、文档和聊天体验 |
+| Dashboard | `/app` | SaaS 指标、活动、存储、AI Usage 和 Plan 概览 |
+| Knowledge Base | `/app/notebooks` | 登录后的 Notebook、文档和聊天体验 |
+| Admin | `/app/admin` | 用户、API Keys、模型路由、审计日志 UI |
+| Billing | `/app/billing` | 订阅、套餐、Usage 和 Billing Events UI |
 | API | `/api/v1/` | Django REST API |
 | Admin | `/admin/` | Django 管理后台 |
 
@@ -21,6 +24,7 @@ AI Notebook Kit 的目标是提供一个可继续扩展的 AI 知识产品底座
 - `frontend/src/components/brand/StarterLogo.vue`
 - `frontend/src/pages/Landing.vue`
 - `frontend/public/assets/starter-hero.png`
+- `docs/assets/`
 - `frontend/index.html`
 
 建议先替换：
@@ -34,9 +38,12 @@ AI Notebook Kit 的目标是提供一个可继续扩展的 AI 知识产品底座
 
 登录后应用从 `/app` 开始，核心页面在 `frontend/src/pages/`：
 
+- `Dashboard.vue`: SaaS 指标、活动、存储、套餐和 AI Usage。
 - `Home.vue`: Notebook 列表与创建入口。
 - `Notebook.vue`: 文档上传、文档列表、重新解析。
 - `Chat.vue`: 会话、消息、RAG 问答和联网搜索。
+- `AdminConsole.vue`: 管理后台 UI surface。
+- `Billing.vue`: Pricing/Subscription/Usage UI surface。
 
 后端按 Django app 拆分：
 

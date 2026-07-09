@@ -1,12 +1,12 @@
 <template>
   <div class="flex h-full flex-col">
-    <header class="flex h-16 shrink-0 items-center justify-between px-6">
-      <div>
+    <header class="flex min-h-16 shrink-0 flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
         <h1 class="text-xl font-semibold tracking-tight text-content">我的笔记本</h1>
-        <p class="text-sm text-content-secondary">管理你的 AI 知识库</p>
+        <p class="text-sm leading-6 text-content-secondary">管理 MindBase Kit 的知识库空间</p>
       </div>
       <button
-        class="gemini-btn gemini-btn-primary"
+        class="gemini-btn gemini-btn-primary w-full justify-center sm:w-auto sm:shrink-0"
         @click="showCreate = true"
       >
         <span class="text-base leading-none">+</span>
@@ -22,7 +22,7 @@
         class="min-w-0 flex-1 rounded-pill border border-line bg-surface-secondary px-5 py-2.5 text-sm text-content outline-none transition-all placeholder:text-content-secondary focus:border-primary focus:bg-surface focus:ring-4 focus:ring-primary-soft"
       />
       <button
-        class="gemini-btn sm:shrink-0"
+        class="gemini-btn justify-center sm:shrink-0"
         :class="
           favoriteOnly
             ? 'gemini-btn-tonal'
@@ -91,11 +91,11 @@
             {{ nb.is_favorite ? '已收藏' : '收藏' }}
           </button>
 
-          <router-link :to="`/app/notebook/${nb.id}`" class="block pr-20">
+          <router-link :to="`/app/notebook/${nb.id}`" class="block min-w-0 pr-20">
             <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-gmd bg-primary-soft text-sm font-semibold text-primary">
               {{ (nb.name || 'N').charAt(0).toUpperCase() }}
             </div>
-            <h3 class="font-medium text-content transition-colors group-hover:text-primary">
+            <h3 class="truncate font-medium text-content transition-colors group-hover:text-primary">
               {{ nb.name }}
             </h3>
             <p class="mt-2 line-clamp-2 text-sm text-content-secondary">

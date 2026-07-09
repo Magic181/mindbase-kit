@@ -27,7 +27,12 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        name: 'Home',
+        name: 'Dashboard',
+        component: () => import('@/pages/Dashboard.vue'),
+      },
+      {
+        path: 'notebooks',
+        name: 'KnowledgeBase',
         component: () => import('@/pages/Home.vue'),
       },
       {
@@ -39,6 +44,16 @@ const routes: RouteRecordRaw[] = [
         path: 'chat/:id',
         name: 'Chat',
         component: () => import('@/pages/Chat.vue'),
+      },
+      {
+        path: 'admin',
+        name: 'AdminConsole',
+        component: () => import('@/pages/AdminConsole.vue'),
+      },
+      {
+        path: 'billing',
+        name: 'Billing',
+        component: () => import('@/pages/Billing.vue'),
       },
     ],
   },
@@ -61,7 +76,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guestOnly && userStore.isLoggedIn) {
-    return { name: 'Home' }
+    return { name: 'Dashboard' }
   }
 })
 
