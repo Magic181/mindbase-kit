@@ -37,6 +37,7 @@ build/
 .agents/
 .claude/
 .codex/
+local-tools/
 
 # OS
 .DS_Store
