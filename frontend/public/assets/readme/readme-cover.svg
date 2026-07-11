@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="620" viewBox="0 0 1600 620" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="40" x2="1510" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24241F"/>
+      <stop offset="1" stop-color="#121210"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="1040" y1="80" x2="1450" y2="530" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF7958"/>
+      <stop offset="1" stop-color="#FF5C35"/>
+    </linearGradient>
+    <filter id="blur" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="70"/>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="620" rx="34" fill="url(#bg)"/>
+  <circle cx="1370" cy="80" r="220" fill="#FF5C35" opacity="0.12" filter="url(#blur)"/>
+  <circle cx="1110" cy="600" r="180" fill="#FF5C35" opacity="0.08" filter="url(#blur)"/>
+
+  <g opacity="0.14" stroke="#F7F5EF">
+    <path d="M0 95H1600"/>
+    <path d="M0 190H1600"/>
+    <path d="M0 285H1600"/>
+    <path d="M0 380H1600"/>
+    <path d="M0 475H1600"/>
+    <path d="M160 0V620"/>
+    <path d="M320 0V620"/>
+    <path d="M480 0V620"/>
+    <path d="M640 0V620"/>
+    <path d="M800 0V620"/>
+    <path d="M960 0V620"/>
+    <path d="M1120 0V620"/>
+    <path d="M1280 0V620"/>
+    <path d="M1440 0V620"/>
+  </g>
+
+  <g transform="translate(110 92)">
+    <rect width="72" height="72" rx="18" fill="#FF5C35"/>
+    <path d="M19 21h13v7h-6v6h-7V21zm34 0v13h-7v-6h-6v-7h13zM19 51V38h7v6h6v7H19zm34 0H40v-7h6v-6h7v13z" fill="#181815"/>
+    <path d="M29 43V29h5l2 3.4 2-3.4h5v14h-4v-7.2l-2 3.3h-2l-2-3.3V43h-4z" fill="#181815"/>
+  </g>
+
+  <text x="110" y="246" fill="#F7F5EF" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="72" font-weight="750" letter-spacing="-3">MindBase <tspan fill="#FF6B47">Kit</tspan></text>
+  <text x="110" y="306" fill="#C9C7BE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="450">The production-shaped foundation</text>
+  <text x="110" y="342" fill="#C9C7BE" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="450">for AI knowledge products.</text>
+
+  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="19" font-weight="650">
+    <rect x="110" y="390" width="126" height="48" rx="24" fill="#F7F5EF" fill-opacity="0.08" stroke="#F7F5EF" stroke-opacity="0.16"/>
+    <text x="139" y="421" fill="#F7F5EF">AUTH</text>
+    <rect x="250" y="390" width="154" height="48" rx="24" fill="#F7F5EF" fill-opacity="0.08" stroke="#F7F5EF" stroke-opacity="0.16"/>
+    <text x="280" y="421" fill="#F7F5EF">INGESTION</text>
+    <rect x="418" y="390" width="112" height="48" rx="24" fill="#F7F5EF" fill-opacity="0.08" stroke="#F7F5EF" stroke-opacity="0.16"/>
+    <text x="451" y="421" fill="#F7F5EF">OCR</text>
+    <rect x="544" y="390" width="108" height="48" rx="24" fill="#FF5C35" fill-opacity="0.16" stroke="#FF7958" stroke-opacity="0.7"/>
+    <text x="579" y="421" fill="#FF8A6D">RAG</text>
+    <rect x="666" y="390" width="150" height="48" rx="24" fill="#F7F5EF" fill-opacity="0.08" stroke="#F7F5EF" stroke-opacity="0.16"/>
+    <text x="696" y="421" fill="#F7F5EF">STREAMING</text>
+  </g>
+
+  <text x="110" y="514" fill="#8D8B83" font-family="Inter, Arial, sans-serif" font-size="20">Vue 3 · Django 5 · Celery · Redis · Docker</text>
+
+  <g filter="url(#shadow)">
+    <rect x="1015" y="92" width="430" height="438" rx="30" fill="#F7F5EF"/>
+    <rect x="1047" y="124" width="366" height="72" rx="18" fill="#ECEAE3"/>
+    <rect x="1071" y="147" width="28" height="28" rx="8" fill="#FF5C35"/>
+    <rect x="1117" y="148" width="130" height="10" rx="5" fill="#292923"/>
+    <rect x="1117" y="168" width="88" height="8" rx="4" fill="#A19F97"/>
+
+    <rect x="1047" y="220" width="170" height="124" rx="18" fill="#FFFFFF" stroke="#DEDCD4"/>
+    <text x="1071" y="252" fill="#77756E" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="600">KNOWLEDGE</text>
+    <text x="1071" y="298" fill="#252520" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="36" font-weight="750">128</text>
+    <rect x="1071" y="317" width="116" height="7" rx="3.5" fill="#EAE8E1"/>
+    <rect x="1071" y="317" width="86" height="7" rx="3.5" fill="#FF5C35"/>
+
+    <rect x="1235" y="220" width="178" height="124" rx="18" fill="#FFFFFF" stroke="#DEDCD4"/>
+    <text x="1259" y="252" fill="#77756E" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="600">ANSWER</text>
+    <rect x="1259" y="272" width="110" height="10" rx="5" fill="#302F2A"/>
+    <rect x="1259" y="293" width="130" height="8" rx="4" fill="#CBC9C1"/>
+    <rect x="1259" y="311" width="98" height="8" rx="4" fill="#CBC9C1"/>
+
+    <rect x="1047" y="368" width="366" height="130" rx="18" fill="#1E1E1A"/>
+    <circle cx="1083" cy="404" r="11" fill="url(#glow)"/>
+    <rect x="1108" y="396" width="180" height="10" rx="5" fill="#F7F5EF" fill-opacity="0.9"/>
+    <rect x="1080" y="430" width="296" height="8" rx="4" fill="#F7F5EF" fill-opacity="0.22"/>
+    <rect x="1080" y="450" width="248" height="8" rx="4" fill="#F7F5EF" fill-opacity="0.22"/>
+    <rect x="1080" y="470" width="72" height="14" rx="7" fill="#FF5C35" fill-opacity="0.9"/>
+  </g>
+
+  <circle cx="1438" cy="488" r="42" fill="#FF5C35"/>
+  <path d="M1420 488l12 12 25-27" stroke="#181815" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
